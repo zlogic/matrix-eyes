@@ -1,51 +1,63 @@
+import argparse
 import torch
 import cv2
 import matplotlib.pyplot as plt
 
-# Load model
-def load_model():
-    #model_type = "DPT_Large"   # MiDaS v3 - Large     (highest accuracy, slowest inference speed)
-    #model_type = "DPT_Hybrid"  # MiDaS v3 - Hybrid    (medium accuracy, medium inference speed)
-    model_type = "MiDaS_small"  # MiDaS v2.1 - Small   (lowest accuracy, highest inference speed)
+class MiDaS:
+    def load_model(self):
+        midas = torch.hub.load('intel-isl/MiDaS', self.model_type)
 
-    midas = torch.hub.load("intel-isl/MiDaS", model_type, trust_repo=True)
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('mps') if torch.backends.mps.is_available() else torch.device('cpu')
+        midas.to(device)
+        midas.eval()
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
-    midas.to(device)
-    midas.eval()
+        midas_transforms = torch.hub.load('intel-isl/MiDaS', 'transforms')
 
-    midas_transforms = torch.hub.load("intel-isl/MiDaS", "transforms", trust_repo=True)
+        if self.model_type == 'DPT_Large' or self.model_type == 'DPT_Hybrid':
+            self.transform = midas_transforms.dpt_transform
+        else:
+            self.transform = midas_transforms.small_transform
 
-    if model_type == "DPT_Large" or model_type == "DPT_Hybrid":
-        transform = midas_transforms.dpt_transform
-    else:
-        transform = midas_transforms.small_transform
-    return midas, transform, device
+        self.midas = midas
+        self.device = device
 
-midas, transform, device = load_model()
+    def extract_depth(self, img):
+        input_batch = self.transform(img).to(self.device)
 
-# Process image
+        with torch.no_grad():
+            prediction = self.midas(input_batch)
 
-filename = "dog.jpg"
-img = cv2.imread(filename)
-img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            prediction = torch.nn.functional.interpolate(
+                prediction.unsqueeze(1),
+                size=img.shape[:2],
+                mode='bicubic',
+                align_corners=False,
+            ).squeeze()
 
-input_batch = transform(img).to(device)
+        output = prediction.cpu().numpy()
+        return output
 
+    def __init__(self, model_type):
+        self.model_type = model_type
+        self.load_model()
 
-with torch.no_grad():
-    prediction = midas(input_batch)
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model-type',
+        choices=['DPT_Large', 'DPT_Hybrid', 'MiDaS_small'],
+        default='DPT_Large')
+    parser.add_argument('input')
+    parser.add_argument('output')
+    args = parser.parse_args()
 
-    prediction = torch.nn.functional.interpolate(
-        prediction.unsqueeze(1),
-        size=img.shape[:2],
-        mode="bicubic",
-        align_corners=False,
-    ).squeeze()
+    img = cv2.imread(args.input)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-output = prediction.cpu().numpy()
+    midas = MiDaS('MiDaS_small')
+    output = midas.extract_depth(img)
 
-# Output result
+    plt.imshow(output)
+    plt.savefig(args.output)
 
-plt.imshow(output)
-plt.savefig('output.png')
+if __name__ == '__main__':
+    main()
