@@ -1,7 +1,7 @@
 import argparse
 import torch
 import cv2
-import matplotlib.pyplot as plt
+import numpy as np
 
 class MiDaS:
     def load_model(self):
@@ -41,6 +41,15 @@ class MiDaS:
         self.model_type = model_type
         self.load_model()
 
+def output_image(depth, filename):
+    depth_min = depth.min()
+    depth_max = depth.max()
+
+    out = 255 * (depth - depth_min) / (depth_max - depth_min)
+    out = cv2.applyColorMap(np.uint8(out), cv2.COLORMAP_INFERNO)
+    
+    cv2.imwrite(filename, out.astype("uint8"))
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-type',
@@ -53,11 +62,11 @@ def main():
     img = cv2.imread(args.input)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    midas = MiDaS('MiDaS_small')
+    midas = MiDaS(args.model_type)
     output = midas.extract_depth(img)
 
-    plt.imshow(output)
-    plt.savefig(args.output)
+    del(midas)
+    output_image(output, args.output)
 
 if __name__ == '__main__':
     main()
