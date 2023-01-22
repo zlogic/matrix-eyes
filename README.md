@@ -19,7 +19,7 @@ To use a custom Torch home directory, set the `TORCH_HOME` environment variable.
 To gerate a depth image, run:
 
 ```shell
-python main.py [--model-type=DPT_Large|DPT_Hybrid|MiDaS_small] [--output-format=image|mesh] <input file> <output_file>
+python main.py [--model-type=DPT_Large|DPT_Hybrid|MiDaS_small] [--output-format=image|stereogram|mesh] [--stereo-amplitude=<value>] <input file> <output_file>
 ```
 
 replacing `<input file>` with the source image filename, and `<output file>` with the output destination filename.
@@ -31,5 +31,7 @@ Additional (optional) arguments:
     * `DPT_Hybrid` will use MiDaS v3 - Hybrid (medium accuracy, medium inference speed)
     * `MiDaS_small` will use MiDaS v2.1 - Small (lowest accuracy, highest inference speed)
 * `output-format` specifies what to output
-    * `image` will output a depth map image
+    * `image` will output a depth map image; default
+    * `stereogram` will output a stereogram image
     * `mesh` will output a 3D [Wavefront OBJ file](https://en.wikipedia.org/wiki/Wavefront_.obj_file)
+* `stereo-amplitude` specifies the maximuim offset/depth for stereograms (relative to image width); might need to be reduced if most of the image consists of foreground objects

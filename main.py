@@ -63,13 +63,37 @@ def output_image(depth, filename):
     
     cv2.imwrite(filename, out.astype("uint8"))
 
+def output_stereogram(depth, filename, amplitude):
+    width = depth.shape[1]
+    height = depth.shape[0]
+    out = np.zeros((height, width, 3), np.uint8)
+
+    depth_min = depth.min()
+    depth_max = depth.max()
+    depth = (depth - depth_min) / (depth_max - depth_min)
+
+    depth_multiplier = width*amplitude
+    pattern_width = int(depth_multiplier*2+16)
+    pattern = np.random.randint(0, 255, (height, pattern_width, 3), np.uint8)
+
+    for y in range(height):
+        for x in range(width):
+            if x >= pattern_width:
+                shift = int(depth[y][x] * depth_multiplier)
+                out[y][x] = out[y][x - pattern_width + shift]
+            else:
+                out[y][x] = pattern[y][x%pattern_width]
+
+    cv2.imwrite(filename, out.astype("uint8"))
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-type',
         choices=['DPT_Large', 'DPT_Hybrid', 'MiDaS_small'],
         default='DPT_Large')
-    parser.add_argument('--output-format', choices=['image', 'mesh'], default='image')
+    parser.add_argument('--output-format', choices=['image', 'mesh', 'stereogram'], default='image')
     parser.add_argument('--resize-scale', type=float, default=1.0)
+    parser.add_argument('--stereo-amplitude', type=float, default=1.0/16)
     parser.add_argument('input')
     parser.add_argument('output')
     args = parser.parse_args()
@@ -89,6 +113,8 @@ def main():
         output_image(output, args.output)
     elif args.output_format == 'mesh':
         output_mesh(output, args.output)
+    elif args.output_format == 'stereogram':
+        output_stereogram(output, args.output, args.stereo_amplitude)
 
 if __name__ == '__main__':
     main()
