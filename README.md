@@ -35,3 +35,19 @@ Additional (optional) arguments:
     * `stereogram` will output a stereogram image
     * `mesh` will output a 3D [Wavefront OBJ file](https://en.wikipedia.org/wiki/Wavefront_.obj_file)
 * `stereo-amplitude` specifies the maximuim offset/depth for stereograms (relative to image width); might need to be reduced if most of the image consists of foreground objects
+
+# Examples
+
+## Image 1
+
+Source image:
+
+![Source image 1](https://raw.githubusercontent.com/wiki/zlogic/matrix-eyes/Examples/img1.jpg)
+
+Depth data extracted by MiDaS:
+
+![Depth data for image 1](https://raw.githubusercontent.com/wiki/zlogic/matrix-eyes/Examples/img1.depth.jpg)
+
+Generated stereogram - works best when [viewed in fullscreen](https://raw.githubusercontent.com/wiki/zlogic/matrix-eyes/Examples/img1.stereo.jpg):
+
+![Stereogram for image 1](https://raw.githubusercontent.com/wiki/zlogic/matrix-eyes/Examples/img1.stereo.jpg)
