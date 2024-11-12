@@ -12,6 +12,12 @@ Using the [MiDaS](https://arxiv.org/abs/1907.01341) depth estimation algorithm.
 pip install -r requirements.txt
 ```
 
+For MiDaS, install `opencv-python` as well:
+
+```shell
+pip install opencv-python
+```
+
 ## Usage
 
 To use a custom Torch home directory, set the `TORCH_HOME` environment variable.
@@ -34,7 +40,7 @@ Additional (optional) arguments:
     * `image` will output a depth map image; default
     * `stereogram` will output a stereogram image
     * `mesh` will output a 3D [Wavefront OBJ file](https://en.wikipedia.org/wiki/Wavefront_.obj_file)
-* `stereo-amplitude` specifies the maximuim offset/depth for stereograms (relative to image width); might need to be reduced if most of the image consists of foreground objects
+* `stereo-amplitude` specifies the maximum offset/depth for stereograms (relative to image width); might need to be reduced if most of the image consists of foreground objects
 
 # Examples
 
