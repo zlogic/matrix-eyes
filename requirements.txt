@@ -1,2 +1,4 @@
 timm
-opencv-python
+torchvision
+pillow_heif
+numpy<2

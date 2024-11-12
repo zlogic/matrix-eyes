@@ -1,7 +1,8 @@
 import argparse
 import torch
-import cv2
 import numpy as np
+from matplotlib import pyplot as plt
+from PIL import Image
 
 class MiDaS:
     def load_model(self):
@@ -22,6 +23,7 @@ class MiDaS:
         self.device = device
 
     def extract_depth(self, img):
+        img = np.array(img)
         input_batch = self.transform(img).to(self.device)
 
         with torch.no_grad():
@@ -58,10 +60,11 @@ def output_image(depth, filename):
     depth_min = depth.min()
     depth_max = depth.max()
 
-    out = 255 * (depth - depth_min) / (depth_max - depth_min)
-    out = cv2.applyColorMap(np.uint8(out), cv2.COLORMAP_INFERNO)
-    
-    cv2.imwrite(filename, out.astype("uint8"))
+    out = (depth - depth_min) / (depth_max - depth_min)
+    cmap = plt.get_cmap("inferno")
+    out = (cmap(out)[..., :3] * 255.0).astype(np.uint8)
+
+    Image.fromarray(out).save(filename)
 
 def output_stereogram(depth, filename, amplitude):
     width = depth.shape[1]
@@ -84,7 +87,7 @@ def output_stereogram(depth, filename, amplitude):
             else:
                 out[y][x] = pattern[y][x%pattern_width]
 
-    cv2.imwrite(filename, out.astype("uint8"))
+    Image.fromarray(out).save(filename)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -98,12 +101,11 @@ def main():
     parser.add_argument('output')
     args = parser.parse_args()
 
-    img = cv2.imread(args.input)
+    img = Image.open(args.input)
 
     if args.resize_scale != 1.0:
         scale = args.resize_scale
-        img = cv2.resize(img, (int(img.shape[1]*scale), int(img.shape[0]*scale)), interpolation=cv2.INTER_CUBIC)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = img.resize(int(img.width*scale), int(img.height*scale), resample=Image.Resampling.BICUBIC)
 
     midas = MiDaS(args.model_type)
     output = midas.extract_depth(img)
