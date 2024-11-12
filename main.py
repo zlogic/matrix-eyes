@@ -1,7 +1,7 @@
 import argparse
 import torch
 import numpy as np
-from matplotlib import pyplot as plt
+from cmap import Colormap
 from PIL import Image
 
 class MiDaS:
@@ -61,7 +61,7 @@ def output_image(depth, filename):
     depth_max = depth.max()
 
     out = (depth - depth_min) / (depth_max - depth_min)
-    cmap = plt.get_cmap("inferno")
+    cmap = Colormap('inferno')
     out = (cmap(out)[..., :3] * 255.0).astype(np.uint8)
 
     Image.fromarray(out).save(filename)

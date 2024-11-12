@@ -1,4 +1,5 @@
 timm
 torchvision
 pillow_heif
+cmap
 numpy<2
