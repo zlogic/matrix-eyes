@@ -2,7 +2,7 @@
 
 Matrix Eyes is a weekend project to convert a photo image into an [autostereogram](https://en.wikipedia.org/wiki/Autostereogram).
 
-Using the [MiDaS](https://arxiv.org/abs/1907.01341) depth estimation algorithm.
+Using the [MiDaS](https://arxiv.org/abs/1907.01341) and [Apple Depth Pro](https://arxiv.org/abs/2410.02073) depth estimation algorithms.
 
 # Instructions
 
@@ -18,6 +18,13 @@ For MiDaS, install `opencv-python` as well:
 pip install opencv-python
 ```
 
+For Depth Pro, download the model checkpoints:
+
+```shell
+mkdir checkpoints
+curl -LJ -o checkpoints/depth_pro.pt https://ml-site.cdn-apple.com/models/depth-pro/depth_pro.pt
+```
+
 ## Usage
 
 To use a custom Torch home directory, set the `TORCH_HOME` environment variable.
@@ -25,7 +32,7 @@ To use a custom Torch home directory, set the `TORCH_HOME` environment variable.
 To gerate a depth image, run:
 
 ```shell
-python main.py [--model-type=DPT_Large|DPT_Hybrid|MiDaS_small] [--output-format=image|stereogram|mesh] [--stereo-amplitude=<value>] <input file> <output_file>
+python main.py [--model-type=Depth_Pro|DPT_Large|DPT_Hybrid|MiDaS_small] [--output-format=image|stereogram|mesh] [--stereo-amplitude=<value>] <input file> <output_file>
 ```
 
 replacing `<input file>` with the source image filename, and `<output file>` with the output destination filename.
@@ -33,6 +40,7 @@ replacing `<input file>` with the source image filename, and `<output file>` wit
 Additional (optional) arguments:
 
 * `model-type` specifies one of the MiDaS models
+    * `Depth_Pro` will use Depth Pro (alternative to MiDaS)
     * `DPT_Large` will use MiDaS v3 - Large (highest accuracy, slowest inference speed); default
     * `DPT_Hybrid` will use MiDaS v3 - Hybrid (medium accuracy, medium inference speed)
     * `MiDaS_small` will use MiDaS v2.1 - Small (lowest accuracy, highest inference speed)
