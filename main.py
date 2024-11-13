@@ -7,10 +7,16 @@ import models
 def output_mesh(depth, filename):
     width = depth.shape[1]
     height = depth.shape[0]
+
+    depth_min = depth.min()
+    depth_max = depth.max()
+
+    depth = min(width, height) * (depth - depth_min) / (depth_max - depth_min)
     with open(filename, 'w') as f:
         for y in range(height):
             for x in range(width):
-                f.write(f'v {x} {height-y} {depth[y][x]}\n')
+                z = depth[y][x]
+                f.write(f'v {x} {height-y} {z}\n')
 
         for y in range(height-1):
             for x in range(width-1):
