@@ -19,6 +19,7 @@ class MiDaS:
 
         self.midas = midas
         self.device = device
+        self.is_inverted = False
 
     def extract_depth(self, image_path, resize_scale):
         img = Image.open(image_path)
@@ -41,7 +42,7 @@ class MiDaS:
             ).squeeze()
 
         output = prediction.cpu().numpy()
-        return output
+        return output, img, None
 
     def __init__(self, model_type):
         self.model_type = model_type

@@ -4,26 +4,37 @@ from cmap import Colormap
 from PIL import Image
 import models
 
-def output_mesh(depth, filename):
+def output_mesh(depth, image, f_px, filename):
     width = depth.shape[1]
     height = depth.shape[0]
 
     depth_min = depth.min()
     depth_max = depth.max()
 
-    depth = min(width, height) * (depth - depth_min) / (depth_max - depth_min)
     with open(filename, 'w') as f:
         for y in range(height):
             for x in range(width):
                 z = depth[y][x]
-                f.write(f'v {x} {height-y} {z}\n')
+                color = image[y][x]/255.0
+                x_out, y_out = x-(width/2), height/2-y
+                if f_px is not None:
+                    # Convert projected coordinates to world
+                    x_out = x*z/f_px
+                    y_out = (height-y)*z/f_px
+                else:
+                    # Use a reasonable depth scale
+                    z = max(width, height) * (z-depth_min) / (depth_max - depth_min)
+                f.write(f'v {x_out} {y_out} {z} {color[0]} {color[1]} {color[2]}\n')
 
         for y in range(height-1):
             for x in range(width-1):
                 f.write(f'f {y*width+x+1} {(y+1)*width+x+1} {y*width+(x+1)+1}\n')
                 f.write(f'f {y*width+(x+1)+1} {(y+1)*width+x+1} {(y+1)*width+(x+1)+1}\n')
 
-def output_image(depth, filename):
+def output_image(depth, is_inverted, filename):
+    # Ensure to use image coordinates
+    if is_inverted:
+        depth = 1.0 / depth
     depth_min = depth.min()
     depth_max = depth.max()
 
@@ -33,11 +44,14 @@ def output_image(depth, filename):
 
     Image.fromarray(out).save(filename)
 
-def output_stereogram(depth, filename, amplitude):
+def output_stereogram(depth, is_inverted, filename, amplitude):
     width = depth.shape[1]
     height = depth.shape[0]
     out = np.zeros((height, width, 3), np.uint8)
 
+    # Ensure to use image coordinates
+    if is_inverted:
+        depth = 1.0 / depth
     depth_min = depth.min()
     depth_max = depth.max()
     depth = (depth - depth_min) / (depth_max - depth_min)
@@ -73,15 +87,16 @@ def main():
     else:
         model = models.MiDaS(args.model_type)
 
-    output = model.extract_depth(args.input, args.resize_scale)
+    output, image, f_px = model.extract_depth(args.input, args.resize_scale)
+    is_inverted = model.is_inverted
 
     del(model)
     if args.output_format == 'image':
-        output_image(output, args.output)
+        output_image(output, is_inverted, args.output)
     elif args.output_format == 'mesh':
-        output_mesh(output, args.output)
+        output_mesh(output, image, f_px, args.output)
     elif args.output_format == 'stereogram':
-        output_stereogram(output, args.output, args.stereo_amplitude)
+        output_stereogram(output, is_inverted, args.output, args.stereo_amplitude)
 
 if __name__ == '__main__':
     main()
