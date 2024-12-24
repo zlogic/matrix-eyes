@@ -18,10 +18,10 @@ def output_mesh(depth, image, f_px, filename):
                 color = image[y][x]/255.0
                 x_out, y_out = x-(width/2), height/2-y
                 if f_px is not None:
-                    # Divide all coordinated by z to keep scale in check and use projected coordinates
-                    x_out = x/f_px
-                    y_out = (height-y)/f_px
-                    z = 1/z
+                    # Clip depth to avoid points at infinity
+                    z = max(-50.0, -z)
+                    x_out = -x_out*z/f_px
+                    y_out = -y_out*z/f_px
                 else:
                     # Use a reasonable depth scale
                     z = max(width, height) * (z-depth_min) / (depth_max - depth_min)
