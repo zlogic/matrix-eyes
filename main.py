@@ -19,7 +19,7 @@ def output_mesh(depth, image, f_px, filename):
                 x_out, y_out = x-(width/2), height/2-y
                 if f_px is not None:
                     # Clip depth to avoid points at infinity
-                    z = max(-50.0, -z)
+                    z = max(-250.0, -z)
                     x_out = -x_out*z/f_px
                     y_out = -y_out*z/f_px
                 else:
@@ -29,6 +29,14 @@ def output_mesh(depth, image, f_px, filename):
 
         for y in range(height-1):
             for x in range(width-1):
+                d_min, d_max = depth[y][x], depth[y][x]
+                for j in range(y, y+2):
+                    for i in range(x, x+2):
+                        d_min = min(d_min, depth[j][i])
+                        d_max = max(d_max, depth[j][i])
+                if ((f_px is not None and d_max/d_min > 1.025)
+                    or (f_px is None and d_max - d_min > (depth_max - depth_min) * 0.05)):
+                    continue
                 f.write(f'f {y*width+x+1} {(y+1)*width+x+1} {y*width+(x+1)+1}\n')
                 f.write(f'f {y*width+(x+1)+1} {(y+1)*width+x+1} {(y+1)*width+(x+1)+1}\n')
 
