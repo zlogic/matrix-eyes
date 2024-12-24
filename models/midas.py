@@ -25,7 +25,7 @@ class MiDaS:
 
         if resize_scale != 1.0:
             scale = resize_scale
-            img = img.resize(int(img.width*scale), int(img.height*scale), resample=Image.Resampling.BICUBIC)
+            img = img.resize((int(img.width*scale), int(img.height*scale)), resample=Image.Resampling.BICUBIC)
 
         img = np.array(img)
         input_batch = self.transform(img).to(self.device)

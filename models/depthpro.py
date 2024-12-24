@@ -12,9 +12,8 @@ class DepthPro:
         self.model = model
     
     def extract_depth(self, image_path, resize_scale):
-        image, _, f_px = load_rgb(image_path)
+        image, _, f_px = load_rgb(image_path, resize_scale)
 
-        # No rescaling for now
         prediction = self.model.infer(self.transform(image), f_px=f_px)
 
         depth = prediction['depth'].detach().cpu().numpy().squeeze()
