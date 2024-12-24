@@ -45,7 +45,7 @@ def fpx_from_f35(width: float, height: float, f_mm: float = 50) -> float:
 
 
 def load_rgb(
-    path: Union[Path, str], auto_rotate: bool = True, remove_alpha: bool = True
+    path: Union[Path, str], resize_scale: float = 1.0, auto_rotate: bool = True, remove_alpha: bool = True
 ) -> Tuple[np.ndarray, List[bytes], float]:
     """Load an RGB image.
 
@@ -85,6 +85,11 @@ def load_rgb(
             img_pil = img_pil.transpose(Image.ROTATE_90)
         elif exif_orientation != 1:
             LOGGER.warning(f"Ignoring image orientation {exif_orientation}.")
+    
+    # Resize the image.
+    if resize_scale != 1.0:
+        scale = resize_scale
+        img_pil = img_pil.resize((int(img_pil.width*scale), int(img_pil.height*scale)), resample=Image.Resampling.BICUBIC)
 
     img = np.array(img_pil)
     # Convert to RGB if single channel.
