@@ -1,0 +1,24 @@
+[package]
+name = "matrix-eyes"
+version = "0.1.0"
+edition = "2021"
+authors = ["Dmitry Zolotukhin <zlogic@gmail.com>"]
+repository = "https://github.com/zlogic/matrix-eyes"
+license = "Apache-2.0"
+rust-version = "1.77"
+
+[dependencies]
+candle-core = { version = "0.8", default-features = false }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+kamadak-exif = { version = "0.6", default-features = false }
+
+[features]
+default = []
+cuda = ["candle-core/cuda"]
+metal = ["candle-core/metal"]
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
