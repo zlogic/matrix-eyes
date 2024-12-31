@@ -9,6 +9,7 @@ rust-version = "1.77"
 
 [dependencies]
 candle-core = { version = "0.8", default-features = false }
+candle-nn = { version = "0.8", default-features = false }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 kamadak-exif = { version = "0.6", default-features = false }
 
