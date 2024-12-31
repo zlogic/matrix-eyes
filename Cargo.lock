@@ -134,6 +134,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "candle-nn"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39d417059c44d719fd03a0f711ccfe148d341469c9273d4b5731ebe965b2c97e"
+dependencies = [
+ "candle-core",
+ "half",
+ "num-traits",
+ "rayon",
+ "safetensors",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -575,6 +590,7 @@ name = "matrix-eyes"
 version = "0.1.0"
 dependencies = [
  "candle-core",
+ "candle-nn",
  "image",
  "kamadak-exif",
 ]

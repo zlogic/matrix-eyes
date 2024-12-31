@@ -1,10 +1,12 @@
 use std::{env, process::exit};
 
+mod depth_pro;
 mod reconstruction;
 
 #[derive(Debug)]
 pub struct Args {
     focal_length: Option<f32>,
+    checkpoint_path: String,
     img_src: String,
     img_out: String,
 }
@@ -14,13 +16,15 @@ Arguments:\
 \n  <IMG_SRC>...  Source image\
 \n  <IMG_OUT>     Output image\n\n\
 Options:\
-\n      --focal-length=<FOCAL_LENGTH>    Focal length in 35mm equivalent\
-\n      --help                           Print help";
+\n      --focal-length=<FOCAL_LENGTH>       Focal length in 35mm equivalent\
+\n      --checkpoint-path=<CHECKPOINT_PATH> Path to checkpoint file [default: ./checkpoints/depth_pro.pt]\
+\n      --help                              Print help";
 
 impl Args {
     fn parse() -> Args {
         let mut args = Args {
             focal_length: None,
+            checkpoint_path: "./checkpoints/depth_pro.pt".to_string(),
             img_src: "".to_string(),
             img_out: "".to_string(),
         };
@@ -50,6 +54,8 @@ impl Args {
                             exit(2)
                         }
                     };
+                } else if name == "--checkpoint-path" {
+                    args.checkpoint_path = value.to_string();
                 } else {
                     eprintln!("Unsupported argument {}", arg);
                 }
@@ -86,7 +92,15 @@ fn main() {
 
     let args = Args::parse();
 
-    if let Err(err) = reconstruction::extract_depth(&args.img_src, args.focal_length) {
+    let model = match reconstruction::DepthModel::new(&args.checkpoint_path) {
+        Ok(model) => model,
+        Err(err) => {
+            println!("Failed to create Depth Pro model: {}", err);
+            exit(1);
+        }
+    };
+
+    if let Err(err) = model.extract_depth(&args.img_src, args.focal_length) {
         println!("Reconstruction failed: {}", err);
         exit(1);
     }

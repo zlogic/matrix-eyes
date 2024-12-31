@@ -1,9 +1,12 @@
 use std::{error, fmt, fs::File, io::BufReader};
 
-use image::RgbImage;
+use image::{imageops, DynamicImage, ImageDecoder, ImageReader, RgbImage};
+
+use crate::depth_pro;
 
 struct SourceImage {
     img: RgbImage,
+    original_size: (u32, u32),
     focal_length_35mm: Option<f32>,
 }
 
@@ -12,22 +15,32 @@ impl SourceImage {
         path: &str,
         focal_length_35mm: Option<f32>,
     ) -> Result<SourceImage, ReconstructionError> {
+        let mut decoder = ImageReader::open(path)?.into_decoder()?;
         let focal_length_35mm = if let Some(focal_length) = focal_length_35mm {
             Some(focal_length)
+        } else if let Some(exif_metadata) = decoder.exif_metadata()? {
+            Self::get_focal_length_35mm(exif_metadata)?
         } else {
-            Self::get_focal_length_35mm(path)?
+            None
         };
-        let img = image::open(path)?.into_rgb8();
+        let orientation = decoder.orientation()?;
+        let mut img = DynamicImage::from_decoder(decoder)?;
+        img.apply_orientation(orientation);
+        let original_size = (img.width(), img.height());
+        // TODO: use model size
+        let img = img
+            .resize_exact(1536, 1536, imageops::FilterType::Lanczos3)
+            .into_rgb8();
 
         Ok(SourceImage {
             img,
+            original_size,
             focal_length_35mm,
         })
     }
 
-    fn get_focal_length_35mm(path: &str) -> Result<Option<f32>, exif::Error> {
-        let mut reader = BufReader::new(File::open(path)?);
-        let exif = exif::Reader::new().read_from_container(&mut reader)?;
+    fn get_focal_length_35mm(exif_data: Vec<u8>) -> Result<Option<f32>, exif::Error> {
+        let exif = exif::Reader::new().read_raw(exif_data)?;
 
         if let Some(focal_length) =
             exif.get_field(exif::Tag::FocalLengthIn35mmFilm, exif::In::PRIMARY)
@@ -49,26 +62,47 @@ impl SourceImage {
     }
 }
 
-pub fn extract_depth(
-    path: &str,
-    focal_length_35mm: Option<f32>,
-) -> Result<(), ReconstructionError> {
-    let img = match SourceImage::load(path, focal_length_35mm) {
-        Ok(img) => img,
-        Err(err) => {
-            eprintln!("Failed to load source image: {}", err);
-            return Err(err);
-        }
-    };
+pub struct DepthModel {
+    encoder: depth_pro::Encoder,
+}
 
-    Ok(())
+impl DepthModel {
+    pub fn new(checkpoint_path: &str) -> Result<DepthModel, ReconstructionError> {
+        // TODO: choose the best available device
+        let vb = candle_nn::VarBuilder::from_pth(
+            checkpoint_path,
+            candle_core::DType::F32,
+            &candle_core::Device::Cpu,
+        )?;
+
+        let encoder = depth_pro::Encoder::new(vb)?;
+        Ok(DepthModel { encoder })
+    }
+
+    pub fn extract_depth(
+        &self,
+        path: &str,
+        focal_length_35mm: Option<f32>,
+    ) -> Result<(), ReconstructionError> {
+        let img = match SourceImage::load(path, focal_length_35mm) {
+            Ok(img) => img,
+            Err(err) => {
+                eprintln!("Failed to load source image: {}", err);
+                return Err(err);
+            }
+        };
+
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
 pub enum ReconstructionError {
     Internal(&'static str),
     Image(image::ImageError),
+    Io(std::io::Error),
     Exif(exif::Error),
+    Candle(candle_core::Error),
 }
 
 impl fmt::Display for ReconstructionError {
@@ -76,7 +110,9 @@ impl fmt::Display for ReconstructionError {
         match *self {
             Self::Internal(msg) => f.write_str(msg),
             Self::Image(ref err) => write!(f, "Image error: {}", err),
+            Self::Io(ref err) => write!(f, "IO error: {}", err),
             Self::Exif(ref err) => write!(f, "EXIF error: {}", err),
+            Self::Candle(ref err) => write!(f, "Candle error: {}", err),
         }
     }
 }
@@ -86,7 +122,9 @@ impl std::error::Error for ReconstructionError {
         match *self {
             Self::Internal(_msg) => None,
             Self::Image(ref err) => Some(err),
+            Self::Io(ref err) => Some(err),
             Self::Exif(ref err) => Some(err),
+            Self::Candle(ref err) => Some(err),
         }
     }
 }
@@ -97,9 +135,21 @@ impl From<image::ImageError> for ReconstructionError {
     }
 }
 
+impl From<std::io::Error> for ReconstructionError {
+    fn from(e: std::io::Error) -> ReconstructionError {
+        Self::Io(e)
+    }
+}
+
 impl From<exif::Error> for ReconstructionError {
     fn from(e: exif::Error) -> ReconstructionError {
         Self::Exif(e)
+    }
+}
+
+impl From<candle_core::Error> for ReconstructionError {
+    fn from(e: candle_core::Error) -> ReconstructionError {
+        Self::Candle(e)
     }
 }
 
