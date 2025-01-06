@@ -83,8 +83,13 @@ pub struct DepthModel {
 
 impl DepthModel {
     pub fn new(checkpoint_path: &str) -> Result<DepthModel, ReconstructionError> {
-        // TODO: choose the best available device
-        let device = candle_core::Device::Cpu;
+        let device = match Self::new_device() {
+            Ok(device) => device,
+            Err(err) => {
+                eprintln!("Failed to create device: {}", err);
+                return Err(err.into());
+            }
+        };
         let vb =
             candle_nn::VarBuilder::from_pth(checkpoint_path, candle_core::DType::F32, &device)?;
 
@@ -96,6 +101,16 @@ impl DepthModel {
             }
         };
         Ok(DepthModel { device, model })
+    }
+
+    fn new_device() -> Result<candle_core::Device, candle_core::Error> {
+        if candle_core::utils::metal_is_available() {
+            candle_core::Device::new_metal(0)
+        } else if candle_core::utils::cuda_is_available() {
+            candle_core::Device::cuda_if_available(0)
+        } else {
+            Ok(candle_core::Device::Cpu)
+        }
     }
 
     pub fn extract_depth(
