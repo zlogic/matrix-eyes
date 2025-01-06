@@ -1,5 +1,7 @@
 # Matrix Eyes
 
+![Build status](https://github.com/zlogic/matrix-eyes/actions/workflows/cargo-build.yml/badge.svg)
+
 Matrix Eyes is a weekend project to convert a photo image into an [autostereogram](https://en.wikipedia.org/wiki/Autostereogram).
 
 Using the [MiDaS](https://arxiv.org/abs/1907.01341) and [Apple Depth Pro](https://arxiv.org/abs/2410.02073) depth estimation algorithms.
