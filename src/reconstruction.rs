@@ -1,11 +1,11 @@
-use std::{error, fmt, fs::File, io::BufReader};
+use std::{error, fmt};
 
-use image::{imageops, DynamicImage, ImageDecoder, ImageReader, RgbImage};
+use image::{imageops, DynamicImage, ImageDecoder, ImageReader};
 
 use crate::depth_pro;
 
 struct SourceImage {
-    img: RgbImage,
+    img: candle_core::Tensor,
     original_size: (u32, u32),
     focal_length_35mm: Option<f32>,
 }
@@ -14,7 +14,13 @@ impl SourceImage {
     fn load(
         path: &str,
         focal_length_35mm: Option<f32>,
+        device: &candle_core::Device,
     ) -> Result<SourceImage, ReconstructionError> {
+        // TODO: use model size
+        const WIDTH: usize = 1536;
+        const HEIGHT: usize = 1536;
+        const MEAN: [f32; 3] = [0.5, 0.5, 0.5];
+        const STD: [f32; 3] = [0.5, 0.5, 0.5];
         let mut decoder = ImageReader::open(path)?.into_decoder()?;
         let focal_length_35mm = if let Some(focal_length) = focal_length_35mm {
             Some(focal_length)
@@ -27,10 +33,19 @@ impl SourceImage {
         let mut img = DynamicImage::from_decoder(decoder)?;
         img.apply_orientation(orientation);
         let original_size = (img.width(), img.height());
-        // TODO: use model size
         let img = img
-            .resize_exact(1536, 1536, imageops::FilterType::Lanczos3)
+            .resize_exact(WIDTH as u32, HEIGHT as u32, imageops::FilterType::Lanczos3)
             .into_rgb8();
+        let data = img.into_raw();
+
+        let data =
+            candle_core::Tensor::from_vec(data, (HEIGHT, WIDTH, 3), device)?.permute((2, 0, 1))?;
+        let mean = candle_core::Tensor::new(&MEAN, device)?.reshape((3, 1, 1))?;
+        let std = candle_core::Tensor::new(&STD, device)?.reshape((3, 1, 1))?;
+        let img = (data.to_dtype(candle_core::DType::F32)? / 255.)?
+            .broadcast_sub(&mean)?
+            .broadcast_div(&std)?
+            .unsqueeze(0)?;
 
         Ok(SourceImage {
             img,
@@ -55,28 +70,38 @@ impl SourceImage {
         let focal_length_35mm = self.focal_length_35mm? as f64;
         // Scale focal length: f_img/f_35mm == diagonal / diagonal(24mm x 36mm) (because 35mm equivalent is based on diagonal length)
         let diagonal_35mm = (24.0f64 * 24.0 + 36.0 * 36.0).sqrt();
-        let width = self.img.width() as f64;
-        let height = self.img.height() as f64;
+        let (width, height) = (self.original_size.0 as f64, self.original_size.1 as f64);
         let diagonal = (width * width + height * height).sqrt();
         Some(focal_length_35mm * diagonal / diagonal_35mm)
     }
 }
 
 pub struct DepthModel {
-    encoder: depth_pro::Encoder,
+    device: candle_core::Device,
+    model: depth_pro::DepthPro,
 }
 
 impl DepthModel {
     pub fn new(checkpoint_path: &str) -> Result<DepthModel, ReconstructionError> {
         // TODO: choose the best available device
-        let vb = candle_nn::VarBuilder::from_pth(
-            checkpoint_path,
-            candle_core::DType::F32,
-            &candle_core::Device::Cpu,
-        )?;
+        let device = candle_core::Device::Cpu;
+        let vb =
+            candle_nn::VarBuilder::from_pth(checkpoint_path, candle_core::DType::F32, &device)?;
+        // TODO: remove this once everything's converted
+        /*
+        candle_core::pickle::read_pth_tensor_info(checkpoint_path, false, None)?
+            .iter()
+            .for_each(|t| println!("{}", t.name));
+        */
 
-        let encoder = depth_pro::Encoder::new(vb)?;
-        Ok(DepthModel { encoder })
+        let model = match depth_pro::DepthPro::new(vb) {
+            Ok(img) => img,
+            Err(err) => {
+                eprintln!("Failed to create Depth Pro model: {}", err);
+                return Err(err.into());
+            }
+        };
+        Ok(DepthModel { device, model })
     }
 
     pub fn extract_depth(
@@ -84,11 +109,18 @@ impl DepthModel {
         path: &str,
         focal_length_35mm: Option<f32>,
     ) -> Result<(), ReconstructionError> {
-        let img = match SourceImage::load(path, focal_length_35mm) {
+        let img = match SourceImage::load(path, focal_length_35mm, &self.device) {
             Ok(img) => img,
             Err(err) => {
                 eprintln!("Failed to load source image: {}", err);
                 return Err(err);
+            }
+        };
+        let depth = match self.model.extract_depth(&img.img) {
+            Ok(img) => img,
+            Err(err) => {
+                eprintln!("Failed to run model: {}", err);
+                return Err(err.into());
             }
         };
 
