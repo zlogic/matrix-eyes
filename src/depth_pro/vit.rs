@@ -1,8 +1,12 @@
 use candle_core::{IndexOp, Result, Tensor, D};
-use candle_nn::{layer_norm, LayerNorm, Linear, Module, VarBuilder};
+use candle_nn::{
+    layer_norm, Conv2d, Conv2dConfig, ConvTranspose2d, ConvTranspose2dConfig, LayerNorm, Linear,
+    Module, Sequential, VarBuilder,
+};
 
 const IMG_SIZE: usize = 384;
 const PATCH_SIZE: usize = 16;
+const EMBED_DIM: usize = 1024;
 
 fn linear(vb: VarBuilder, in_dim: usize, out_dim: usize, bias: bool) -> Result<Linear> {
     if bias {
@@ -145,7 +149,7 @@ impl Module for Block {
 
 #[derive(Debug)]
 struct PatchEmbed {
-    proj: candle_nn::Conv2d,
+    proj: Conv2d,
     patch_size: (usize, usize),
     num_patches: usize,
 }
@@ -158,7 +162,7 @@ impl PatchEmbed {
         in_chans: usize,
         embed_dim: usize,
     ) -> Result<Self> {
-        let config = candle_nn::Conv2dConfig {
+        let config = Conv2dConfig {
             stride: patch_size,
             ..Default::default()
         };
@@ -249,9 +253,11 @@ impl DinoVisionTransformer {
     }
 
     fn prepare_tokens_with_mask(&self, xs: &Tensor) -> Result<Tensor> {
-        let (_b, _nc, w, h) = xs.dims4()?;
+        let (b, _nc, w, h) = xs.dims4()?;
         let xs = self.patch_embed.forward(xs)?;
-        let xs = Tensor::cat(&[&self.cls_token, &xs], 1)?;
+        let cls_shape = self.cls_token.dims3()?;
+        let cls_token = self.cls_token.expand((b, cls_shape.1, cls_shape.2))?;
+        let xs = Tensor::cat(&[&cls_token, &xs], 1)?;
         &xs + &self.interpolate_pos_encoding(&xs, w, h)?
     }
 
@@ -337,19 +343,280 @@ impl DinoVisionTransformer {
 impl Module for DinoVisionTransformer {
     fn forward(&self, xs: &Tensor) -> Result<Tensor> {
         let mut xs = self.prepare_tokens_with_mask(xs)?;
+        println!("Prepared tokens {:?}", xs.dims());
         for blk in self.blocks.iter() {
-            xs = blk.forward(&xs)?
+            xs = blk.forward(&xs)?;
+            println!("forwarded token {:?}", xs.dims());
         }
         let xs = self.norm.forward(&xs)?;
+        println!("forwarded norm {:?}", xs.dims());
         let xs_norm_clstoken = xs.i((.., 0))?;
+        println!("forwarded clstoken {:?}", xs_norm_clstoken.dims());
         let xs_norm_patchtokens = xs.i((.., 1..))?.mean(1)?;
-        let xs = Tensor::cat(&[xs_norm_clstoken, xs_norm_patchtokens], D::Minus1)?;
-        // TODO: implement custom modules for encoding/decoding
-        //self.head.forward(&xs)
-        unimplemented!()
+        println!("forwarded patchtoken {:?}", xs_norm_patchtokens.dims());
+        // Depth Pro uses forward_features instead of forward, using head is unnecessary.
+        Tensor::cat(&[xs_norm_clstoken, xs_norm_patchtokens], D::Minus1)
     }
 }
 
-pub fn dinov2l16_384(vb: VarBuilder) -> Result<DinoVisionTransformer> {
-    DinoVisionTransformer::new(vb, 24, 1024, 16)
+fn dinov2l16_384(vb: VarBuilder) -> Result<DinoVisionTransformer> {
+    DinoVisionTransformer::new(vb, 24, EMBED_DIM, 16)
+}
+
+pub(super) struct DepthProEncoder {
+    patch_encoder: DinoVisionTransformer,
+    image_encoder: DinoVisionTransformer,
+    upsample_latent0: Sequential,
+    upsample_latent1: Sequential,
+    upsample0: Sequential,
+    upsample1: Sequential,
+    upsample2: Sequential,
+    upsample_lowres: ConvTranspose2d,
+    fuse_lowres: Conv2d,
+}
+
+impl DepthProEncoder {
+    pub fn new(vb: VarBuilder) -> Result<DepthProEncoder> {
+        const ENCODER_FEATURE_DIMS: [usize; 4] = [256, 512, 1024, 1024];
+        const DECODER_FEATURES: usize = 256;
+
+        let patch_encoder = dinov2l16_384(vb.pp("patch_encoder"))?;
+        let image_encoder = dinov2l16_384(vb.pp("image_encoder"))?;
+        // TODO: find the source
+        let upsample_latent0 = Self::create_project_upsample_block(
+            EMBED_DIM,
+            DECODER_FEATURES,
+            3,
+            Some(ENCODER_FEATURE_DIMS[0]),
+            vb.pp("upsample_latent0"),
+        )?;
+        let upsample_latent1 = Self::create_project_upsample_block(
+            EMBED_DIM,
+            ENCODER_FEATURE_DIMS[0],
+            2,
+            None,
+            vb.pp("upsample_latent1"),
+        )?;
+        let upsample0 = Self::create_project_upsample_block(
+            EMBED_DIM,
+            ENCODER_FEATURE_DIMS[1],
+            1,
+            None,
+            vb.pp("upsample0"),
+        )?;
+        let upsample1 = Self::create_project_upsample_block(
+            EMBED_DIM,
+            ENCODER_FEATURE_DIMS[2],
+            1,
+            None,
+            vb.pp("upsample1"),
+        )?;
+        let upsample2 = Self::create_project_upsample_block(
+            EMBED_DIM,
+            ENCODER_FEATURE_DIMS[3],
+            1,
+            None,
+            vb.pp("upsample2"),
+        )?;
+        let upsample_lowres = candle_nn::conv_transpose2d(
+            EMBED_DIM,
+            ENCODER_FEATURE_DIMS[3],
+            2,
+            ConvTranspose2dConfig {
+                padding: 0,
+                output_padding: 0,
+                stride: 2,
+                dilation: 1,
+            },
+            vb.pp("upsample_lowres"),
+        )?;
+        let fuse_lowres = candle_nn::conv2d(
+            ENCODER_FEATURE_DIMS[3] * 2,
+            ENCODER_FEATURE_DIMS[3],
+            1,
+            Conv2dConfig::default(),
+            vb.pp("fuse_lowres"),
+        )?;
+        Ok(DepthProEncoder {
+            patch_encoder,
+            image_encoder,
+            upsample_latent0,
+            upsample_latent1,
+            upsample0,
+            upsample1,
+            upsample2,
+            upsample_lowres,
+            fuse_lowres,
+        })
+    }
+
+    fn create_project_upsample_block(
+        dim_in: usize,
+        dim_out: usize,
+        upsample_layers: usize,
+        dim_int: Option<usize>,
+        vb: VarBuilder,
+    ) -> Result<Sequential> {
+        let dim_int = dim_int.unwrap_or(dim_out);
+        let mut layer = candle_nn::seq().add(candle_nn::conv2d_no_bias(
+            dim_in,
+            dim_int,
+            1,
+            Conv2dConfig::default(),
+            vb.pp(0),
+        )?);
+
+        for i in 0..upsample_layers {
+            let in_channels = if i == 0 { dim_int } else { dim_out };
+            let cfg = ConvTranspose2dConfig {
+                padding: 0,
+                output_padding: 0,
+                stride: 2,
+                dilation: 1,
+            };
+            layer = layer.add(candle_nn::conv_transpose2d_no_bias(
+                in_channels,
+                dim_out,
+                2,
+                cfg,
+                vb.pp(1 + i),
+            )?);
+        }
+
+        Ok(layer)
+    }
+
+    fn create_pyramid(x: Tensor) -> Result<(Tensor, Tensor, Tensor)> {
+        let (_b, _c, h, w) = x.dims4()?;
+        // Depth Pro uses bicubic interpolation, which is not supported by Candle at the moment.
+        // Seems unnecessary, as bicubic doesn't seem to be the best algorithm downscaling
+        // (especially by 2^x).
+        let x1 = x.interpolate2d(w / 2, h / 2)?;
+        let x2 = x.interpolate2d(w / 4, h / 4)?;
+        let x0 = x;
+        Ok((x0, x1, x2))
+    }
+
+    fn split(x: Tensor, overlap_div: usize) -> Result<Tensor> {
+        const PATCH_SIZE: usize = 384;
+        let patch_stride = PATCH_SIZE - PATCH_SIZE / overlap_div;
+
+        let image_size = x.dims4()?.3;
+
+        let mut x_patch_list = vec![];
+        for j in (0..=image_size - PATCH_SIZE).step_by(patch_stride) {
+            for i in (0..=image_size - PATCH_SIZE).step_by(patch_stride) {
+                x_patch_list.push(x.i((.., .., j..j + PATCH_SIZE, i..i + PATCH_SIZE))?);
+            }
+        }
+        Tensor::cat(&x_patch_list, 0)
+    }
+
+    fn merge(x: Tensor, batch_size: usize, padding: usize) -> Result<Tensor> {
+        let (b, _c, _h, _w) = x.dims4()?;
+        let steps = ((b / batch_size) as f64).sqrt() as usize;
+
+        let mut output_list = vec![];
+        for j in 0..steps {
+            let mut output_row_list = vec![];
+            for i in 0..steps {
+                let idx = j * steps + i;
+                let mut output = x.i(batch_size * idx..batch_size * (idx + 1))?;
+                if j > 0 {
+                    output = output.i((.., .., padding.., ..))?;
+                }
+                if i > 0 {
+                    output = output.i((.., .., .., padding..))?;
+                }
+                if j < steps - 1 {
+                    output = output.i((.., .., ..batch_size - padding, ..))?;
+                }
+                if i < steps - 1 {
+                    output = output.i((.., .., .., ..batch_size - padding))?;
+                }
+                output_row_list.push(output);
+            }
+            let output_row = Tensor::cat(&output_row_list, 3)?;
+            output_list.push(output_row);
+        }
+        Tensor::cat(&output_list, 2)
+    }
+
+    fn reshape_feature(
+        embeddings: Tensor,
+        width: usize,
+        height: usize,
+        cls_token_offset: usize,
+    ) -> Result<Tensor> {
+        let (b, _hw, c) = embeddings.dims3()?;
+
+        let embeddings = if cls_token_offset > 0 {
+            embeddings.i((.., cls_token_offset.., ..))?
+        } else {
+            embeddings
+        };
+
+        embeddings
+            .reshape(&[b, height, width, c])?
+            .permute((0, 3, 1, 2))
+    }
+}
+
+impl Module for DepthProEncoder {
+    fn forward(&self, x: &Tensor) -> Result<Tensor> {
+        const OUT_SIZE: usize = IMG_SIZE / PATCH_SIZE;
+        const HIGHRES_LAYER_IDS: [usize; 2] = [5, 11];
+        let batch_size = x.dim(0)?;
+
+        let (x0, x1, x2) = Self::create_pyramid(x.clone())?;
+
+        let x0_patches = Self::split(x0, 4)?;
+        let x1_patches = Self::split(x1, 2)?;
+        let x2_patches = x2;
+        let (x0_patches_len, x1_patches_len, x2_patches_len) = (
+            x0_patches.dims4()?.0,
+            x1_patches.dims4()?.0,
+            x2_patches.dims4()?.0,
+        );
+
+        let x_pyramid_patches = Tensor::cat(&[x0_patches, x1_patches, x2_patches], 0)?;
+
+        // TODO: reuse blocks instead of recalculating results twice.
+        println!("pyramid patches {:?}", x_pyramid_patches.dims());
+        let x_pyramid_encodings = self.patch_encoder.forward(&x_pyramid_patches)?;
+        let (highres_encoding0, highres_encoding1) = {
+            let mut highres_encoding = self
+                .patch_encoder
+                .get_intermediate_layers_not_chunked(&x_pyramid_patches, &HIGHRES_LAYER_IDS)?
+                .into_iter();
+            (
+                highres_encoding.next().unwrap(),
+                highres_encoding.next().unwrap(),
+            )
+        };
+        println!(
+            "Forwarded patch {:?}(should be 35x577x1024)",
+            x_pyramid_encodings.dims()
+        );
+        let x_pyramid_encodings =
+            Self::reshape_feature(x_pyramid_encodings, OUT_SIZE, OUT_SIZE, 3)?;
+
+        println!("l0 patch");
+        let x_latent0_encodings = Self::reshape_feature(highres_encoding0, OUT_SIZE, OUT_SIZE, 3)?;
+        let x_latent0_features =
+            Self::merge(x_latent0_encodings.i(..batch_size * 5 * 5)?, batch_size, 3)?;
+
+        println!("l1 patch");
+        let x_latent1_encodings = Self::reshape_feature(highres_encoding1, OUT_SIZE, OUT_SIZE, 3)?;
+        let x_latent1_features =
+            Self::merge(x_latent1_encodings.i(..batch_size * 5 * 5)?, batch_size, 3)?;
+
+        println!("Narrow pyramids");
+        let x0_encodings = x_pyramid_encodings.i(..x0_patches_len);
+        let x1_encodings = x_pyramid_encodings.i(x0_patches_len..x0_patches_len + x1_patches_len)?;
+        let x2_encodings = x_pyramid_encodings
+            .i(x0_patches_len + x1_patches_len..x0_patches_len + x1_patches_len + x2_patches_len)?;
+
+        unimplemented!();
+    }
 }

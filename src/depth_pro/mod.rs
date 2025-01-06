@@ -1,14 +1,21 @@
-use candle_nn::VarBuilder;
+use candle_nn::{Module as _, VarBuilder};
+use vit::DepthProEncoder;
 
-mod dino_vit;
+mod vit;
 
-pub struct Encoder {}
+pub struct DepthPro {
+    encoder: DepthProEncoder,
+}
 
-impl Encoder {
-    pub fn new(vb: VarBuilder) -> Result<Encoder, candle_core::Error> {
-        //let vb = vb.pp("encoder").pp("image_encoder");
-        let vb = vb.pp("encoder").pp("patch_encoder");
-        dino_vit::dinov2l16_384(vb)?;
-        Ok(Encoder {})
+impl DepthPro {
+    pub fn new(vb: VarBuilder) -> Result<DepthPro, candle_core::Error> {
+        let encoder = DepthProEncoder::new(vb.pp("encoder"))?;
+
+        Ok(DepthPro { encoder })
+    }
+
+    pub fn extract_depth(&self, img: &candle_core::Tensor) -> Result<(), candle_core::Error> {
+        self.encoder.forward(img)?;
+        Ok(())
     }
 }
