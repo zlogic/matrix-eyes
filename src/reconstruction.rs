@@ -87,12 +87,6 @@ impl DepthModel {
         let device = candle_core::Device::Cpu;
         let vb =
             candle_nn::VarBuilder::from_pth(checkpoint_path, candle_core::DType::F32, &device)?;
-        // TODO: remove this once everything's converted
-        /*
-        candle_core::pickle::read_pth_tensor_info(checkpoint_path, false, None)?
-            .iter()
-            .for_each(|t| println!("{}", t.name));
-        */
 
         let model = match depth_pro::DepthPro::new(vb) {
             Ok(img) => img,
