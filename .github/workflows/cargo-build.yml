@@ -89,7 +89,7 @@ jobs:
         echo "ENABLED_FEATURES=cuda" >> $GITHUB_ENV
 
     - name: Build
-      run: cargo build --target=${{ matrix.arch }}-unknown-linux-gnu --features=$ENABLED_FEATURES --release
+      run: cargo build --target=${{ matrix.arch }}-unknown-linux-gnu --features=${ENABLED_FEATURES} --release
 
     - name: Package application
       run: tar -cvjf matrix-eyes-${{ matrix.os }}-${{ matrix.arch }}.tar.bz2 -C target/${{ matrix.arch }}-unknown-linux-gnu/release matrix-eyes
@@ -115,7 +115,7 @@ jobs:
       id: get-rust-version
       run: |
         $version = rustc --version | % {$_.replace(" ","_")}
-        echo "VERSION=$version" >> "$env:GITHUB_OUTPUT"
+        echo "VERSION=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
     - name: Cache Rust dependencies and artifacts
       id: cache-rust
@@ -140,13 +140,19 @@ jobs:
         if ($FileHash.Hash -ne "48d5d66c3550b7744715c638dac4f522") {
           Write-Error "Download hash mismatch" -ErrorAction Stop
         }
-        ./cuda_12.6.3_windows_network.exe -s nvcc12.6
-        echo "ENABLED_FEATURES=cuda" >> $GITHUB_ENV
+        Start-Process -FilePath .\cuda_12.6.3_windows_network.exe -ArgumentList "-s nvcc_12.6 cudart_12.6 nvrtc_dev_12.6 curand_dev_12.6 cublas_dev_12.6" -Wait -NoNewWindow
+        echo "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "C:\Program Files\Microsoft Visual Studio\2022\Enterprise" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "CUDA_COMPUTE_CAP=75" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "CUDA_PATH=C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.6" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        $version = Get-Content "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt" -Raw
+        $version = $version.Trim()
+        echo "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\$version\bin\HostX64\x64" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "ENABLED_FEATURES=cuda" >> "$env:GITHUB_ENV"
 
     - name: Build
       run: |
-        $Env:RUSTFLAGS = "-C target-feature=+crt-static"
-        cargo build --target=${{ matrix.arch }}-pc-windows-msvc --features=${ENABLED_FEATURES} --release
+        cargo build --target=${{ matrix.arch }}-pc-windows-msvc --features=$env:ENABLED_FEATURES --release
 
     - name: Package application
       run: Compress-Archive -Path .\target\${{ matrix.arch }}-pc-windows-msvc\release\matrix-eyes.exe -DestinationPath matrix-eyes-${{ runner.os }}-${{ matrix.arch }}.zip
