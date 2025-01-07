@@ -1,7 +1,7 @@
 use candle_nn::{Module as _, VarBuilder};
-use vit::DepthProEncoder;
+use encoder::DepthProEncoder;
 
-mod vit;
+mod encoder;
 
 pub struct DepthPro {
     encoder: DepthProEncoder,
