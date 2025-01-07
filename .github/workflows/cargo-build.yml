@@ -41,8 +41,10 @@ jobs:
         include:
         - arch: x86_64
           os: ubuntu
+          cuda: false
         - arch: aarch64
           os: ubuntu
+          cuda: false
 
     steps:
     - uses: actions/checkout@v4
@@ -76,7 +78,7 @@ jobs:
         echo "CXXFLAGS=-march=armv8.2-a" >> $GITHUB_ENV
 
     - name: Install CUDA
-      if: matrix.arch == 'x86_64'
+      if: matrix.cuda
       run: |
         curl -LOJ https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
         sudo dpkg -i cuda-keyring_1.1-1_all.deb
@@ -106,7 +108,11 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        arch: [aarch64, x86_64]
+        include:
+        - arch: x86_64
+          cuda: false
+        - arch: aarch64
+          cuda: false
 
     steps:
     - uses: actions/checkout@v4
@@ -133,7 +139,7 @@ jobs:
       run: rustup target add ${{ matrix.arch }}-pc-windows-msvc
 
     - name: Install CUDA
-      if: matrix.arch == 'x86_64'
+      if: matrix.cuda
       run: |
         Invoke-WebRequest https://developer.download.nvidia.com/compute/cuda/12.6.3/network_installers/cuda_12.6.3_windows_network.exe -OutFile cuda_12.6.3_windows_network.exe
         $FileHash = Get-FileHash cuda_12.6.3_windows_network.exe -Algorithm MD5
@@ -193,7 +199,9 @@ jobs:
       run: rustup target add ${{ matrix.arch }}-apple-darwin
 
     - name: Build
-      run: cargo build --target=${{ matrix.arch }}-apple-darwin --features=metal --release
+      env:
+        ENABLED_FEATURES: ""
+      run: cargo build --target=${{ matrix.arch }}-apple-darwin --features=${{ env.ENABLED_FEATURES }} --release
 
     - name: Package application
       run: tar -cvjf matrix-eyes-${{ runner.os }}-${{ matrix.arch }}.tar.bz2 -C target/${{ matrix.arch }}-apple-darwin/release matrix-eyes
