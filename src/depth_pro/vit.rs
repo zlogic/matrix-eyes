@@ -270,6 +270,7 @@ impl DinoVisionTransformer {
         let mut output = Vec::new();
         for (i, blk) in self.blocks.iter().enumerate() {
             xs = blk.forward(&xs)?;
+            println!("forwarded token {:?}", xs.dims());
             if blocks_to_take.contains(&i) {
                 output.push(xs.clone());
             }
@@ -284,78 +285,23 @@ impl DinoVisionTransformer {
         Ok(output)
     }
 
-    pub fn get_intermediate_layers(
+    fn forward_features(
         &self,
         xs: &Tensor,
-        blocks_to_take: &[usize],
-        reshape: bool,
-        return_class_token: bool,
-        norm: bool,
-    ) -> Result<Tensor> {
-        let outputs = self.get_intermediate_layers_not_chunked(xs, blocks_to_take)?;
-        let outputs = if norm {
-            outputs
-                .iter()
-                .map(|out| self.norm.forward(out))
-                .collect::<Result<Vec<_>>>()?
+        intermediate_blocks: &[usize],
+    ) -> Result<(Tensor, Vec<Tensor>)> {
+        // Depth Pro uses forward_features instead of a normal forward call.
+        let mut blocks_to_take = intermediate_blocks.to_vec();
+        blocks_to_take.push(self.blocks.len() - 1);
+        // Based on vision_transformer.py.
+        let mut outputs = self.get_intermediate_layers_not_chunked(xs, &blocks_to_take)?;
+        let final_output = if let Some(xs) = outputs.pop() {
+            xs
         } else {
-            outputs
+            candle_core::bail!("failed to return last block when forwarding features")
         };
-        let class_tokens = outputs
-            .iter()
-            .map(|out| out.i((.., 0)))
-            .collect::<Result<Vec<_>>>()?;
-        let outputs = outputs
-            .iter()
-            .map(|out| out.i((.., 1..)))
-            .collect::<Result<Vec<_>>>()?;
-
-        let outputs = if reshape {
-            let (b, _c, w, h) = xs.dims4()?;
-            let patch_size = self.patch_embed.patch_size.0;
-            let num_channels = outputs[0].elem_count() / (b * (w / patch_size) * (h / patch_size));
-            outputs
-                .iter()
-                .map(|out| {
-                    out.reshape((b, w / patch_size, h / patch_size, num_channels))?
-                        .transpose(2, 3)?
-                        .transpose(1, 2)
-                })
-                .collect::<Result<Vec<_>>>()?
-        } else {
-            outputs
-        };
-
-        let outputs = if return_class_token {
-            outputs
-                .iter()
-                .zip(class_tokens.iter())
-                .map(|(out, class_token)| Tensor::cat(&[out, class_token], D::Minus1))
-                .collect::<Result<Vec<_>>>()?
-        } else {
-            outputs
-        };
-
-        Tensor::stack(&outputs[..], 0)
-    }
-}
-
-impl Module for DinoVisionTransformer {
-    fn forward(&self, xs: &Tensor) -> Result<Tensor> {
-        let mut xs = self.prepare_tokens_with_mask(xs)?;
-        println!("Prepared tokens {:?}", xs.dims());
-        for blk in self.blocks.iter() {
-            xs = blk.forward(&xs)?;
-            println!("forwarded token {:?}", xs.dims());
-        }
-        let xs = self.norm.forward(&xs)?;
-        println!("forwarded norm {:?}", xs.dims());
-        let xs_norm_clstoken = xs.i((.., 0))?;
-        println!("forwarded clstoken {:?}", xs_norm_clstoken.dims());
-        let xs_norm_patchtokens = xs.i((.., 1..))?.mean(1)?;
-        println!("forwarded patchtoken {:?}", xs_norm_patchtokens.dims());
-        // Depth Pro uses forward_features instead of forward, using head is unnecessary.
-        Tensor::cat(&[xs_norm_clstoken, xs_norm_patchtokens], D::Minus1)
+        let final_output = self.norm.forward(&final_output)?;
+        Ok((final_output, outputs))
     }
 }
 
@@ -513,7 +459,7 @@ impl DepthProEncoder {
     }
 
     fn merge(x: Tensor, batch_size: usize, padding: usize) -> Result<Tensor> {
-        let (b, _c, _h, _w) = x.dims4()?;
+        let (b, _c, h, w) = x.dims4()?;
         let steps = ((b / batch_size) as f64).sqrt() as usize;
 
         let mut output_list = vec![];
@@ -521,25 +467,28 @@ impl DepthProEncoder {
             let mut output_row_list = vec![];
             for i in 0..steps {
                 let idx = j * steps + i;
-                let mut output = x.i(batch_size * idx..batch_size * (idx + 1))?;
+                let b_range = batch_size * idx..batch_size * (idx + 1);
+                let mut h_range = 0..h;
+                let mut w_range = 0..w;
                 if j > 0 {
-                    output = output.i((.., .., padding.., ..))?;
+                    h_range.start = padding;
                 }
                 if i > 0 {
-                    output = output.i((.., .., .., padding..))?;
+                    w_range.start = padding;
                 }
                 if j < steps - 1 {
-                    output = output.i((.., .., ..batch_size - padding, ..))?;
+                    h_range.end = h - padding;
                 }
                 if i < steps - 1 {
-                    output = output.i((.., .., .., ..batch_size - padding))?;
+                    w_range.end = w - padding;
                 }
+                let output = x.i((b_range, .., h_range, w_range))?;
                 output_row_list.push(output);
             }
-            let output_row = Tensor::cat(&output_row_list, 3)?;
+            let output_row = Tensor::cat(&output_row_list, D::Minus1)?;
             output_list.push(output_row);
         }
-        Tensor::cat(&output_list, 2)
+        Tensor::cat(&output_list, D::Minus2)
     }
 
     fn reshape_feature(
@@ -560,10 +509,8 @@ impl DepthProEncoder {
             .reshape(&[b, height, width, c])?
             .permute((0, 3, 1, 2))
     }
-}
 
-impl Module for DepthProEncoder {
-    fn forward(&self, x: &Tensor) -> Result<Tensor> {
+    pub fn forward_encodings(&self, x: &Tensor) -> Result<Vec<Tensor>> {
         const OUT_SIZE: usize = IMG_SIZE / PATCH_SIZE;
         const HIGHRES_LAYER_IDS: [usize; 2] = [5, 11];
         let batch_size = x.dim(0)?;
@@ -579,44 +526,62 @@ impl Module for DepthProEncoder {
             x2_patches.dims4()?.0,
         );
 
-        let x_pyramid_patches = Tensor::cat(&[x0_patches, x1_patches, x2_patches], 0)?;
+        let x_pyramid_patches = Tensor::cat(&[x0_patches, x1_patches, x2_patches.clone()], 0)?;
 
         // TODO: reuse blocks instead of recalculating results twice.
-        println!("pyramid patches {:?}", x_pyramid_patches.dims());
-        let x_pyramid_encodings = self.patch_encoder.forward(&x_pyramid_patches)?;
+        let (x_pyramid_encodings, highres_encodings) = self
+            .patch_encoder
+            .forward_features(&x_pyramid_patches, &HIGHRES_LAYER_IDS)?;
+        drop(x_pyramid_patches);
         let (highres_encoding0, highres_encoding1) = {
-            let mut highres_encoding = self
-                .patch_encoder
-                .get_intermediate_layers_not_chunked(&x_pyramid_patches, &HIGHRES_LAYER_IDS)?
-                .into_iter();
-            (
-                highres_encoding.next().unwrap(),
-                highres_encoding.next().unwrap(),
-            )
+            let mut it = highres_encodings.into_iter();
+            (it.next().take().unwrap(), it.next().take().unwrap())
         };
-        println!(
-            "Forwarded patch {:?}(should be 35x577x1024)",
-            x_pyramid_encodings.dims()
-        );
         let x_pyramid_encodings =
-            Self::reshape_feature(x_pyramid_encodings, OUT_SIZE, OUT_SIZE, 3)?;
+            Self::reshape_feature(x_pyramid_encodings, OUT_SIZE, OUT_SIZE, 1)?;
 
-        println!("l0 patch");
-        let x_latent0_encodings = Self::reshape_feature(highres_encoding0, OUT_SIZE, OUT_SIZE, 3)?;
+        let x_latent0_encodings = Self::reshape_feature(highres_encoding0, OUT_SIZE, OUT_SIZE, 1)?;
         let x_latent0_features =
             Self::merge(x_latent0_encodings.i(..batch_size * 5 * 5)?, batch_size, 3)?;
+        drop(x_latent0_encodings);
 
-        println!("l1 patch");
-        let x_latent1_encodings = Self::reshape_feature(highres_encoding1, OUT_SIZE, OUT_SIZE, 3)?;
+        let x_latent1_encodings = Self::reshape_feature(highres_encoding1, OUT_SIZE, OUT_SIZE, 1)?;
         let x_latent1_features =
             Self::merge(x_latent1_encodings.i(..batch_size * 5 * 5)?, batch_size, 3)?;
+        drop(x_latent1_encodings);
 
-        println!("Narrow pyramids");
-        let x0_encodings = x_pyramid_encodings.i(..x0_patches_len);
+        let x0_encodings = x_pyramid_encodings.i(..x0_patches_len)?;
         let x1_encodings = x_pyramid_encodings.i(x0_patches_len..x0_patches_len + x1_patches_len)?;
         let x2_encodings = x_pyramid_encodings
             .i(x0_patches_len + x1_patches_len..x0_patches_len + x1_patches_len + x2_patches_len)?;
+        drop(x_pyramid_encodings);
 
-        unimplemented!();
+        let x0_features = Self::merge(x0_encodings, batch_size, 3)?;
+        let x1_features = Self::merge(x1_encodings, batch_size, 6)?;
+        let x2_features = x2_encodings;
+
+        let (x_global_features, _) = self.image_encoder.forward_features(&x2_patches, &[])?;
+        drop(x2_patches);
+        let x_global_features = Self::reshape_feature(x_global_features, OUT_SIZE, OUT_SIZE, 1)?;
+
+        let x_latent0_features = self.upsample_latent0.forward(&x_latent0_features)?;
+        let x_latent1_features = self.upsample_latent1.forward(&x_latent1_features)?;
+
+        let x0_features = self.upsample0.forward(&x0_features)?;
+        let x1_features = self.upsample1.forward(&x1_features)?;
+        let x2_features = self.upsample2.forward(&x2_features)?;
+
+        let x_global_features = self.upsample_lowres.forward(&x_global_features)?;
+        let x_global_features = self
+            .fuse_lowres
+            .forward(&Tensor::cat(&[x2_features, x_global_features], 1)?)?;
+
+        Ok(vec![
+            x_latent0_features,
+            x_latent1_features,
+            x0_features,
+            x1_features,
+            x_global_features,
+        ])
     }
 }
