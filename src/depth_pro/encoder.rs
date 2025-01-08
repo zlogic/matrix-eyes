@@ -322,51 +322,55 @@ pub(super) struct DepthProEncoder {
 }
 
 impl DepthProEncoder {
-    pub fn new(vb: VarBuilder) -> Result<DepthProEncoder> {
-        const ENCODER_FEATURE_DIMS: [usize; 4] = [256, 512, 1024, 1024];
-        const DECODER_FEATURES: usize = 256;
-
+    pub fn new(
+        vb: VarBuilder,
+        encoder_feature_dims: &[usize],
+        decoder_features: usize,
+    ) -> Result<DepthProEncoder> {
+        if encoder_feature_dims.len() != 4 {
+            let l = encoder_feature_dims.len();
+            candle_core::bail!("expected 4 encoder feature dims, got {l}");
+        }
         let patch_encoder = dinov2l16_384(vb.pp("patch_encoder"))?;
         let image_encoder = dinov2l16_384(vb.pp("image_encoder"))?;
-        // TODO: find the source
         let upsample_latent0 = Self::create_project_upsample_block(
             EMBED_DIM,
-            DECODER_FEATURES,
+            decoder_features,
             3,
-            Some(ENCODER_FEATURE_DIMS[0]),
+            Some(encoder_feature_dims[0]),
             vb.pp("upsample_latent0"),
         )?;
         let upsample_latent1 = Self::create_project_upsample_block(
             EMBED_DIM,
-            ENCODER_FEATURE_DIMS[0],
+            encoder_feature_dims[0],
             2,
             None,
             vb.pp("upsample_latent1"),
         )?;
         let upsample0 = Self::create_project_upsample_block(
             EMBED_DIM,
-            ENCODER_FEATURE_DIMS[1],
+            encoder_feature_dims[1],
             1,
             None,
             vb.pp("upsample0"),
         )?;
         let upsample1 = Self::create_project_upsample_block(
             EMBED_DIM,
-            ENCODER_FEATURE_DIMS[2],
+            encoder_feature_dims[2],
             1,
             None,
             vb.pp("upsample1"),
         )?;
         let upsample2 = Self::create_project_upsample_block(
             EMBED_DIM,
-            ENCODER_FEATURE_DIMS[3],
+            encoder_feature_dims[3],
             1,
             None,
             vb.pp("upsample2"),
         )?;
         let upsample_lowres = candle_nn::conv_transpose2d(
             EMBED_DIM,
-            ENCODER_FEATURE_DIMS[3],
+            encoder_feature_dims[3],
             2,
             ConvTranspose2dConfig {
                 padding: 0,
@@ -377,8 +381,8 @@ impl DepthProEncoder {
             vb.pp("upsample_lowres"),
         )?;
         let fuse_lowres = candle_nn::conv2d(
-            ENCODER_FEATURE_DIMS[3] * 2,
-            ENCODER_FEATURE_DIMS[3],
+            encoder_feature_dims[3] * 2,
+            encoder_feature_dims[3],
             1,
             Conv2dConfig::default(),
             vb.pp("fuse_lowres"),
