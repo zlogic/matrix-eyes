@@ -27,16 +27,7 @@ impl DepthPro {
 
     pub fn extract_depth(&self, img: &candle_core::Tensor) -> Result<(), candle_core::Error> {
         let encodings = self.encoder.forward_encodings(img)?;
-        println!(
-            "Extracted {:?} {:?} {:?} {:?} {:?}",
-            encodings[0].dims(),
-            encodings[1].dims(),
-            encodings[2].dims(),
-            encodings[3].dims(),
-            encodings[4].dims()
-        );
         let (features, features_0) = self.decoder.forward(encodings)?;
-        println!("Decoded {:?} {:?}", features.dims(), features_0.dims());
         Ok(())
     }
 }

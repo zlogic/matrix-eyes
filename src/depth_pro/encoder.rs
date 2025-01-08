@@ -270,7 +270,6 @@ impl DinoVisionTransformer {
         let mut output = Vec::new();
         for (i, blk) in self.blocks.iter().enumerate() {
             xs = blk.forward(&xs)?;
-            println!("forwarded token {:?}", xs.dims());
             if blocks_to_take.contains(&i) {
                 output.push(xs.clone());
             }
