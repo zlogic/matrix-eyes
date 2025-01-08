@@ -217,7 +217,7 @@ jobs:
 
     - name: Build
       env:
-        ENABLED_FEATURES: "metal"
+        ENABLED_FEATURES: ""
       run: cargo build --target=${{ matrix.arch }}-apple-darwin --features=${{ env.ENABLED_FEATURES }} --release
 
     - name: Package application
