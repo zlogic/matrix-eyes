@@ -107,7 +107,13 @@ impl DepthModel {
         if candle_core::utils::metal_is_available() {
             candle_core::Device::new_metal(0)
         } else if candle_core::utils::cuda_is_available() {
-            candle_core::Device::new_cuda(0)
+            match candle_core::Device::cuda_if_available(0) {
+                Ok(device) => Ok(device),
+                Err(err) => {
+                    eprintln!("Failed to init CUDA device, falling back to CPU: {}", err);
+                    Ok(candle_core::Device::Cpu)
+                }
+            }
         } else {
             Ok(candle_core::Device::Cpu)
         }
