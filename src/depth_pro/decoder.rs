@@ -28,15 +28,12 @@ impl Module for ResidualConvUnit {
     fn forward(&self, xs: &Tensor) -> Result<Tensor> {
         let activation = Activation::Relu;
 
-        println!("conv1");
         let out = activation.forward(xs)?;
         let out = self.conv1.forward(&out)?;
 
-        println!("conv2");
         let out = activation.forward(&out)?;
         let out = self.conv2.forward(&out)?;
 
-        println!("out");
         out + xs
     }
 }
@@ -95,13 +92,11 @@ impl FeatureFusionBlock {
         let out = if let Some(x1) = x1.take() {
             // skip_add in PyTorch is just a regular addition.
             let res = self.res_conv_unit1.forward(&x1)?;
-            println!("resnet1 {:?} {:?}", x0.dims(), res.dims());
             (x0 + res)?
         } else {
             x0
         };
 
-        println!("resnet2");
         let mut out = self.res_conv_unit2.forward(&out)?;
 
         if let Some(ref deconv) = self.deconv {
@@ -125,7 +120,6 @@ impl MultiresConvDecoder {
     ) -> Result<MultiresConvDecoder> {
         let mut convs = vec![];
         if dims_encoder[0] != dim_decoder {
-            println!("Add conv0");
             convs.push(candle_nn::conv2d_no_bias(
                 dims_encoder[0],
                 dim_decoder,
@@ -168,21 +162,13 @@ impl MultiresConvDecoder {
             .last()
             .unwrap()
             .forward(encodings.last().unwrap())?;
-        println!("lowres features {:?}", lowres_features.dims());
         let mut features = self
             .fusions
             .last()
             .unwrap()
             .forward(lowres_features.clone(), None)?;
-        println!("lowres features {:?}", features.dims());
 
         for (i, encoding) in encodings.into_iter().enumerate().rev().skip(1) {
-            println!(
-                "fusionconvs {} {} {}",
-                i,
-                self.convs.len(),
-                self.fusions.len()
-            );
             let conv = if self.convs.len() == self.fusions.len() {
                 Some(&self.convs[i])
             } else if i >= 1 {
@@ -195,11 +181,6 @@ impl MultiresConvDecoder {
             } else {
                 encoding
             };
-            println!(
-                "features {:?}  features_i {:?}",
-                features.dims(),
-                features_i.dims()
-            );
             features = self.fusions[i].forward(features, Some(features_i))?;
         }
 
