@@ -1,6 +1,7 @@
 use std::{error, fmt};
 
-use image::{imageops, DynamicImage, ImageDecoder, ImageReader};
+use candle_core::IndexOp;
+use image::{imageops, DynamicImage, GrayImage, ImageDecoder, ImageReader};
 
 use crate::depth_pro;
 
@@ -76,12 +77,12 @@ impl SourceImage {
     }
 }
 
-pub struct DepthModel {
+pub struct DepthModel<'a> {
     device: candle_core::Device,
-    model: depth_pro::DepthPro,
+    vb: candle_nn::VarBuilder<'a>,
 }
 
-impl DepthModel {
+impl DepthModel<'_> {
     pub fn new(checkpoint_path: &str) -> Result<DepthModel, ReconstructionError> {
         let device = match Self::new_device() {
             Ok(device) => device,
@@ -93,14 +94,7 @@ impl DepthModel {
         let vb =
             candle_nn::VarBuilder::from_pth(checkpoint_path, candle_core::DType::F32, &device)?;
 
-        let model = match depth_pro::DepthPro::new(vb) {
-            Ok(img) => img,
-            Err(err) => {
-                eprintln!("Failed to create Depth Pro model: {}", err);
-                return Err(err.into());
-            }
-        };
-        Ok(DepthModel { device, model })
+        Ok(DepthModel { device, vb })
     }
 
     fn new_device() -> Result<candle_core::Device, candle_core::Error> {
@@ -115,25 +109,40 @@ impl DepthModel {
 
     pub fn extract_depth(
         &self,
-        path: &str,
+        source_path: &str,
+        destination_path: &str,
         focal_length_35mm: Option<f32>,
     ) -> Result<(), ReconstructionError> {
-        let img = match SourceImage::load(path, focal_length_35mm, &self.device) {
+        let img = match SourceImage::load(source_path, focal_length_35mm, &self.device) {
             Ok(img) => img,
             Err(err) => {
                 eprintln!("Failed to load source image: {}", err);
                 return Err(err);
             }
         };
-        let depth = match self.model.extract_depth(&img.img) {
-            Ok(img) => img,
+        let (_, _, _h, w) = img.img.dims4()?;
+        let f_norm = img.focal_length_px().unwrap_or(1.0) / w as f64;
+        let depth = match depth_pro::extract_depth(self.vb.clone(), &img.img, f_norm as f32) {
+            Ok(depth) => depth,
             Err(err) => {
                 eprintln!("Failed to run model: {}", err);
                 return Err(err.into());
             }
         };
+        //let depth = (1.0 / depth)?;
 
-        Ok(())
+        let (h, w) = depth.dims2()?;
+        let mut out_image = GrayImage::new(w as u32, h as u32);
+        let min_depth = depth.min_all()?.to_scalar::<f32>()?;
+        let max_depth = depth.max_all()?.to_scalar::<f32>()?;
+        for (y, image_row) in out_image.enumerate_rows_mut() {
+            let row = depth.i(y as usize)?.to_vec1::<f32>()?;
+            for ((_x, _y, pixel), depth) in image_row.zip(row.into_iter()) {
+                let depth = (depth - min_depth) / (max_depth - min_depth);
+                pixel.0 = [(255.0 * depth).clamp(0.0, 255.0) as u8];
+            }
+        }
+        Ok(out_image.save(destination_path)?)
     }
 }
 
