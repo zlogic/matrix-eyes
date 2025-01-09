@@ -26,17 +26,13 @@ impl ResidualConvUnit {
     fn forward(&self, xs: &Tensor) -> Result<Tensor> {
         let activation = Activation::Relu;
 
-        println!("Activation");
         let mut out = activation.forward(xs)?;
-        println!("conv1 forward");
+        // This will cause OOM issues on the last iteration, seems like a Candle bug.
         out = self.conv1.forward(&out)?;
 
-        println!("Activation");
         out = activation.forward(&out)?;
-        println!("conv2 forward");
         out = self.conv2.forward(&out)?;
 
-        println!("+");
         out + xs
     }
 }
@@ -94,23 +90,18 @@ impl FeatureFusionBlock {
     fn forward(&self, x0: Tensor, mut x1: Option<Tensor>) -> Result<Tensor> {
         let mut out = x0;
         if let Some(x1) = x1.take() {
-            println!("res1");
             // skip_add in PyTorch is just a regular addition.
             let res = self.res_conv_unit1.forward(&x1)?;
             drop(x1);
-            println!("res1+");
             out = (out + res)?
         };
 
-        println!("res2");
         out = self.res_conv_unit2.forward(&out)?;
 
         if let Some(ref deconv) = self.deconv {
-            println!("deconv");
             out = deconv.forward(&out)?;
         }
 
-        println!("conv");
         self.output_conv.forward(&out)
     }
 }
@@ -177,7 +168,6 @@ impl MultiresConvDecoder {
             .forward(lowres_features.clone(), None)?;
 
         for (i, encoding) in encodings.into_iter().enumerate().rev() {
-            println!("i={} enc={:?}", i, encoding.dims());
             let conv = if self.convs.len() == self.fusions.len() {
                 Some(&self.convs[i])
             } else if i >= 1 {
@@ -192,7 +182,6 @@ impl MultiresConvDecoder {
             } else {
                 encoding
             };
-            println!("features={:?}", features_i.dims());
             features = self.fusions[i].forward(features, Some(features_i))?;
         }
 
