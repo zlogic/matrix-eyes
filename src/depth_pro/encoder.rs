@@ -234,17 +234,17 @@ impl DinoVisionTransformer {
             return Ok(xs.clone());
         }
         let class_pos_embed = self.pos_embed.i((.., ..1))?;
-        let patch_pos_embed = self.pos_embed.i((.., 1..))?;
+        let mut patch_pos_embed = self.pos_embed.i((.., 1..))?;
         let dim = xs.dim(D::Minus1)?;
         let (w0, h0) = ((w / PATCH_SIZE) as f64 + 0.1, (h / PATCH_SIZE) as f64 + 0.1);
-        let patch_pos_embed = patch_pos_embed
+        patch_pos_embed = patch_pos_embed
             .reshape((1, sqrt_n as usize, sqrt_n as usize, dim))?
             .transpose(2, 3)?
             .transpose(1, 2)?;
         // This uses bicubic interpolation in the original implementation.
-        let patch_pos_embed = patch_pos_embed.upsample_nearest2d(h0 as usize, w0 as usize)?;
+        patch_pos_embed = patch_pos_embed.upsample_nearest2d(h0 as usize, w0 as usize)?;
         let el_count = patch_pos_embed.shape().elem_count();
-        let patch_pos_embed =
+        patch_pos_embed =
             patch_pos_embed
                 .transpose(1, 2)?
                 .transpose(2, 3)?
@@ -254,10 +254,10 @@ impl DinoVisionTransformer {
 
     fn prepare_tokens_with_mask(&self, xs: &Tensor) -> Result<Tensor> {
         let (b, _nc, w, h) = xs.dims4()?;
-        let xs = self.patch_embed.forward(xs)?;
+        let mut xs = self.patch_embed.forward(xs)?;
         let cls_shape = self.cls_token.dims3()?;
         let cls_token = self.cls_token.expand((b, cls_shape.1, cls_shape.2))?;
-        let xs = Tensor::cat(&[&cls_token, &xs], 1)?;
+        xs = Tensor::cat(&[&cls_token, &xs], 1)?;
         &xs + &self.interpolate_pos_encoding(&xs, w, h)?
     }
 
@@ -294,12 +294,12 @@ impl DinoVisionTransformer {
         blocks_to_take.push(self.blocks.len() - 1);
         // Based on vision_transformer.py.
         let mut outputs = self.get_intermediate_layers_not_chunked(xs, &blocks_to_take)?;
-        let final_output = if let Some(xs) = outputs.pop() {
+        let mut final_output = if let Some(xs) = outputs.pop() {
             xs
         } else {
             candle_core::bail!("failed to return last block when forwarding features")
         };
-        let final_output = self.norm.forward(&final_output)?;
+        final_output = self.norm.forward(&final_output)?;
         Ok((final_output, outputs))
     }
 }
@@ -559,23 +559,23 @@ impl DepthProEncoder {
             .i(x0_patches_len + x1_patches_len..x0_patches_len + x1_patches_len + x2_patches_len)?;
         drop(x_pyramid_encodings);
 
-        let x0_features = Self::merge(x0_encodings, batch_size, 3)?;
-        let x1_features = Self::merge(x1_encodings, batch_size, 6)?;
-        let x2_features = x2_encodings;
+        let mut x0_features = Self::merge(x0_encodings, batch_size, 3)?;
+        let mut x1_features = Self::merge(x1_encodings, batch_size, 6)?;
+        let mut x2_features = x2_encodings;
 
-        let (x_global_features, _) = self.image_encoder.forward_features(&x2_patches, &[])?;
+        let (mut x_global_features, _) = self.image_encoder.forward_features(&x2_patches, &[])?;
         drop(x2_patches);
-        let x_global_features = Self::reshape_feature(x_global_features, OUT_SIZE, OUT_SIZE, 1)?;
+        x_global_features = Self::reshape_feature(x_global_features, OUT_SIZE, OUT_SIZE, 1)?;
 
         let x_latent0_features = self.upsample_latent0.forward(&x_latent0_features)?;
         let x_latent1_features = self.upsample_latent1.forward(&x_latent1_features)?;
 
-        let x0_features = self.upsample0.forward(&x0_features)?;
-        let x1_features = self.upsample1.forward(&x1_features)?;
-        let x2_features = self.upsample2.forward(&x2_features)?;
+        x0_features = self.upsample0.forward(&x0_features)?;
+        x1_features = self.upsample1.forward(&x1_features)?;
+        x2_features = self.upsample2.forward(&x2_features)?;
 
-        let x_global_features = self.upsample_lowres.forward(&x_global_features)?;
-        let x_global_features = self
+        x_global_features = self.upsample_lowres.forward(&x_global_features)?;
+        x_global_features = self
             .fuse_lowres
             .forward(&Tensor::cat(&[x2_features, x_global_features], 1)?)?;
 

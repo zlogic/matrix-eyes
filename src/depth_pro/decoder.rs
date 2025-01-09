@@ -22,18 +22,21 @@ impl ResidualConvUnit {
 
         Ok(Self { conv1, conv2 })
     }
-}
 
-impl Module for ResidualConvUnit {
     fn forward(&self, xs: &Tensor) -> Result<Tensor> {
         let activation = Activation::Relu;
 
-        let out = activation.forward(xs)?;
-        let out = self.conv1.forward(&out)?;
+        println!("Activation");
+        let mut out = activation.forward(xs)?;
+        println!("conv1 forward");
+        out = self.conv1.forward(&out)?;
 
-        let out = activation.forward(&out)?;
-        let out = self.conv2.forward(&out)?;
+        println!("Activation");
+        out = activation.forward(&out)?;
+        println!("conv2 forward");
+        out = self.conv2.forward(&out)?;
 
+        println!("+");
         out + xs
     }
 }
@@ -89,20 +92,25 @@ impl FeatureFusionBlock {
     }
 
     fn forward(&self, x0: Tensor, mut x1: Option<Tensor>) -> Result<Tensor> {
-        let out = if let Some(x1) = x1.take() {
+        let mut out = x0;
+        if let Some(x1) = x1.take() {
+            println!("res1");
             // skip_add in PyTorch is just a regular addition.
             let res = self.res_conv_unit1.forward(&x1)?;
-            (x0 + res)?
-        } else {
-            x0
+            drop(x1);
+            println!("res1+");
+            out = (out + res)?
         };
 
-        let mut out = self.res_conv_unit2.forward(&out)?;
+        println!("res2");
+        out = self.res_conv_unit2.forward(&out)?;
 
         if let Some(ref deconv) = self.deconv {
+            println!("deconv");
             out = deconv.forward(&out)?;
         }
 
+        println!("conv");
         self.output_conv.forward(&out)
     }
 }
@@ -150,7 +158,7 @@ impl MultiresConvDecoder {
         Ok(MultiresConvDecoder { convs, fusions })
     }
 
-    pub fn forward(&self, encodings: Vec<Tensor>) -> Result<(Tensor, Tensor)> {
+    pub fn forward(&self, mut encodings: Vec<Tensor>) -> Result<(Tensor, Tensor)> {
         if encodings.len() != self.fusions.len() {
             let received = encodings.len();
             let expected = self.fusions.len();
@@ -161,14 +169,15 @@ impl MultiresConvDecoder {
             .convs
             .last()
             .unwrap()
-            .forward(encodings.last().unwrap())?;
+            .forward(&encodings.pop().unwrap())?;
         let mut features = self
             .fusions
             .last()
             .unwrap()
             .forward(lowres_features.clone(), None)?;
 
-        for (i, encoding) in encodings.into_iter().enumerate().rev().skip(1) {
+        for (i, encoding) in encodings.into_iter().enumerate().rev() {
+            println!("i={} enc={:?}", i, encoding.dims());
             let conv = if self.convs.len() == self.fusions.len() {
                 Some(&self.convs[i])
             } else if i >= 1 {
@@ -177,10 +186,13 @@ impl MultiresConvDecoder {
                 None
             };
             let features_i = if let Some(conv) = conv {
-                conv.forward(&encoding)?
+                let features_i = conv.forward(&encoding)?;
+                drop(encoding);
+                features_i
             } else {
                 encoding
             };
+            println!("features={:?}", features_i.dims());
             features = self.fusions[i].forward(features, Some(features_i))?;
         }
 
