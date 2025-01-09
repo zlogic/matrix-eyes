@@ -100,7 +100,7 @@ fn main() {
         }
     };
 
-    if let Err(err) = model.extract_depth(&args.img_src, args.focal_length) {
+    if let Err(err) = model.extract_depth(&args.img_src, &args.img_out, args.focal_length) {
         println!("Reconstruction failed: {}", err);
         exit(1);
     }
