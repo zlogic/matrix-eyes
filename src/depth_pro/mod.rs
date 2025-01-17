@@ -80,14 +80,10 @@ pub fn extract_depth(
     };
     let canonical_inverse_depth = canonical_inverse_depth.squeeze(0)?.squeeze(0)?;
 
-    /*
     let inverse_depth =
         canonical_inverse_depth.broadcast_div(&Tensor::new(f_norm, img.device())?)?;
 
     let depth = (1.0 / inverse_depth.clamp(1e-4, 1e4)?)?;
 
     Ok(depth)
-    */
-
-    Ok(canonical_inverse_depth)
 }
