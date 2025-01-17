@@ -4,8 +4,6 @@ use candle_nn::{
     Module, Sequential, VarBuilder,
 };
 
-use crate::de;
-
 const IMG_SIZE: usize = 384;
 const PATCH_SIZE: usize = 16;
 const EMBED_DIM: usize = 1024;
@@ -230,26 +228,15 @@ impl DinoVisionTransformer {
 
     fn interpolate_pos_encoding(&self, xs: &Tensor, w: usize, h: usize) -> Result<Tensor> {
         let npatch = xs.dim(1)? - 1;
-        println!("npatch={}", npatch);
         let n = self.pos_embed.dim(1)? - 1;
-        println!("n={}", n);
         let sqrt_n = (n as f64).sqrt();
-        println!("sqrt_n={}", n);
-        println!("w={} h={}", w, h);
         if npatch == n && w == h {
-            println!(
-                "Dimension matches {:?} {:?}",
-                self.pos_embed.dims(),
-                xs.dims()
-            );
             return Ok(self.pos_embed.clone());
         }
         let class_pos_embed = self.pos_embed.i((.., ..1))?;
         let mut patch_pos_embed = self.pos_embed.i((.., 1..))?;
         let dim = xs.dim(D::Minus1)?;
         let (w0, h0) = ((w / PATCH_SIZE) as f64 + 0.1, (h / PATCH_SIZE) as f64 + 0.1);
-        println!("w0={} h0={}", w0, h0);
-        println!("patch_pos_embed={:?}", patch_pos_embed.dims());
         patch_pos_embed = patch_pos_embed
             .reshape((1, sqrt_n as usize, sqrt_n as usize, dim))?
             .transpose(2, 3)?
@@ -268,8 +255,6 @@ impl DinoVisionTransformer {
     fn prepare_tokens_with_mask(&self, xs: &Tensor) -> Result<Tensor> {
         let (b, _nc, w, h) = xs.dims4()?;
         let mut xs = self.patch_embed.forward(xs)?;
-        println!("xafter");
-        de::debug_tensor(&xs.i((0, 20..24, 100..105))?)?;
         let cls_shape = self.cls_token.dims3()?;
         let cls_token = self.cls_token.expand((b, cls_shape.1, cls_shape.2))?;
         xs = Tensor::cat(&[&cls_token, &xs], 1)?;
@@ -283,14 +268,9 @@ impl DinoVisionTransformer {
     ) -> Result<Vec<Tensor>> {
         let mut xs = self.prepare_tokens_with_mask(xs)?;
         let mut output = Vec::new();
-        println!("before blocks");
-        de::debug_tensor(&xs.i((0, 20..24, 100..105))?)?;
         for (i, blk) in self.blocks.iter().enumerate() {
             xs = blk.forward(&xs)?;
-            println!("Block {}", i);
-            de::debug_tensor(&xs.i((0, 20..24, 100..105))?)?;
             if blocks_to_take.contains(&i) {
-                println!("Pushing block");
                 output.push(xs.clone());
             }
         }
@@ -312,8 +292,6 @@ impl DinoVisionTransformer {
         // Depth Pro uses forward_features instead of a normal forward call.
         let mut blocks_to_take = intermediate_blocks.to_vec();
         blocks_to_take.push(self.blocks.len() - 1);
-        println!("Blocks {:?}, {}", blocks_to_take, self.blocks.len());
-        de::debug_tensor(&xs.i((0, 2, 100..105, 200..205))?)?;
         // Based on vision_transformer.py.
         let mut outputs = self.get_intermediate_layers_not_chunked(xs, &blocks_to_take)?;
         let mut final_output = if let Some(xs) = outputs.pop() {
@@ -507,14 +485,6 @@ impl DepthProEncoder {
                 if i < steps - 1 {
                     w_range.end = w - padding;
                 }
-                println!(
-                    "merge {}-{} {:?}, {:?}, {:?}",
-                    batch_size * idx,
-                    batch_size * (idx + 1),
-                    b_range,
-                    h_range,
-                    w_range
-                );
                 let output = x.i((b_range, .., h_range, w_range))?;
                 output_row_list.push(output);
             }
