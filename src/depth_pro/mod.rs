@@ -1,9 +1,7 @@
-use candle_core::{IndexOp as _, Tensor};
+use candle_core::Tensor;
 use candle_nn::{Activation, Conv2dConfig, ConvTranspose2dConfig, Module as _, VarBuilder};
 use decoder::MultiresConvDecoder;
 use encoder::DepthProEncoder;
-
-use crate::de;
 
 mod decoder;
 mod encoder;
@@ -21,13 +19,6 @@ pub fn extract_depth(
             DepthProEncoder::new(vb.pp("encoder"), &ENCODER_FEATURE_DIMS, DECODER_FEATURES)?;
         encoder.forward_encodings(img)?
     };
-
-    de::debug_tensor(&encodings[0].i((0, 100, 24..28, 24..28))?)?;
-    de::debug_tensor(&encodings[1].i((0, 100, 24..28, 24..28))?)?;
-    println!("");
-    //de::debug_tensor(&encodings[2].i((0, 100, 24..28, 24..28))?)?;
-    //de::debug_tensor(&encodings[3].i((0, 100, 24..28, 24..28))?)?;
-    //de::debug_tensor(&encodings[4].i((0, 100, 24..28, 24..28))?)?;
 
     let (features, features_0) = {
         let mut dims_encoder = vec![DECODER_FEATURES];
@@ -85,13 +76,8 @@ pub fn extract_depth(
         )?);
         head = head.add(Activation::Relu);
 
-        println!("features before {:?}", features.dims());
-        de::debug_tensor(&features.i((0, 0, 20..24, 100..105))?)?;
-
         head.forward(&features)?
     };
-    println!("features after {:?}", features.dims());
-    de::debug_tensor(&canonical_inverse_depth.i((0, 0, 20..24, 100..105))?)?;
     let canonical_inverse_depth = canonical_inverse_depth.squeeze(0)?.squeeze(0)?;
 
     /*
