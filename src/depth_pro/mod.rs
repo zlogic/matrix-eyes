@@ -29,7 +29,6 @@ pub fn extract_depth(
     drop(features_0);
 
     let canonical_inverse_depth = {
-        println!("Head");
         let head_layer = candle_nn::conv2d(
             DECODER_FEATURES,
             DECODER_FEATURES / 2,
@@ -82,7 +81,6 @@ pub fn extract_depth(
         head_layer.forward(&features)?
     };
     drop(features);
-    println!("head done");
     let canonical_inverse_depth = canonical_inverse_depth.squeeze(0)?.squeeze(0)?;
 
     let inverse_depth =
