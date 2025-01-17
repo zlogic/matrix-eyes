@@ -20,7 +20,7 @@ pub fn extract_depth(
         encoder.forward_encodings(img)?
     };
 
-    let (features, features_0) = {
+    let (mut features, features_0) = {
         let mut dims_encoder = vec![DECODER_FEATURES];
         dims_encoder.extend_from_slice(&ENCODER_FEATURE_DIMS);
         let decoder = MultiresConvDecoder::new(vb.pp("decoder"), &dims_encoder, DECODER_FEATURES)?;
@@ -29,8 +29,8 @@ pub fn extract_depth(
     drop(features_0);
 
     let canonical_inverse_depth = {
-        let mut head = candle_nn::seq();
-        head = head.add(candle_nn::conv2d(
+        println!("Head");
+        let head_layer = candle_nn::conv2d(
             DECODER_FEATURES,
             DECODER_FEATURES / 2,
             3,
@@ -41,8 +41,10 @@ pub fn extract_depth(
                 groups: 1,
             },
             vb.pp("head").pp(0),
-        )?);
-        head = head.add(candle_nn::conv_transpose2d(
+        )?;
+        features = head_layer.forward(&features)?;
+
+        let head_layer = candle_nn::conv_transpose2d(
             DECODER_FEATURES / 2,
             DECODER_FEATURES / 2,
             2,
@@ -53,8 +55,10 @@ pub fn extract_depth(
                 dilation: 1,
             },
             vb.pp("head").pp(1),
-        )?);
-        head = head.add(candle_nn::conv2d(
+        )?;
+        features = head_layer.forward(&features)?;
+
+        let head_layer = candle_nn::conv2d(
             DECODER_FEATURES / 2,
             32,
             3,
@@ -65,19 +69,20 @@ pub fn extract_depth(
                 groups: 1,
             },
             vb.pp("head").pp(2),
-        )?);
-        head = head.add(Activation::Relu);
-        head = head.add(candle_nn::conv2d(
-            32,
-            1,
-            1,
-            Conv2dConfig::default(),
-            vb.pp("head").pp(4),
-        )?);
-        head = head.add(Activation::Relu);
+        )?;
+        features = head_layer.forward(&features)?;
 
-        head.forward(&features)?
+        let head_layer = Activation::Relu;
+        features = head_layer.forward(&features)?;
+
+        let head_layer = candle_nn::conv2d(32, 1, 1, Conv2dConfig::default(), vb.pp("head").pp(4))?;
+        features = head_layer.forward(&features)?;
+
+        let head_layer = Activation::Relu;
+        head_layer.forward(&features)?
     };
+    drop(features);
+    println!("head done");
     let canonical_inverse_depth = canonical_inverse_depth.squeeze(0)?.squeeze(0)?;
 
     let inverse_depth =

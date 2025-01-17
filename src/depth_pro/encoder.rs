@@ -531,9 +531,11 @@ impl DepthProEncoder {
 
         let x_pyramid_patches = Tensor::cat(&[x0_patches, x1_patches, x2_patches.clone()], 0)?;
 
+        println!("forward start");
         let (x_pyramid_encodings, highres_encodings) = self
             .patch_encoder
             .forward_features(&x_pyramid_patches, &HIGHRES_LAYER_IDS)?;
+        println!("forward end");
         drop(x_pyramid_patches);
         let (highres_encoding0, highres_encoding1) = {
             let mut it = highres_encodings.into_iter();
@@ -562,7 +564,9 @@ impl DepthProEncoder {
         let mut x1_features = Self::merge(x1_encodings, batch_size, 6)?;
         let mut x2_features = x2_encodings;
 
+        println!("forward start");
         let (mut x_global_features, _) = self.image_encoder.forward_features(&x2_patches, &[])?;
+        println!("forward end");
         drop(x2_patches);
         x_global_features = Self::reshape_feature(x_global_features, OUT_SIZE, OUT_SIZE, 1)?;
 
