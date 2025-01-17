@@ -15,7 +15,7 @@ kamadak-exif = { version = "0.6", default-features = false }
 
 [features]
 default = []
-cuda = ["candle-core/cuda", "candle-nn/cuda"]
+cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-core/cudnn"]
 metal = ["candle-core/metal", "candle-nn/metal"]
 
 [profile.release]
