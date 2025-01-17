@@ -28,9 +28,8 @@ impl ResidualConvUnit {
 
         let mut out = activation.forward(xs)?;
         // This will cause OOM issues on the last iteration, seems like a Candle bug.
-        println!("Danger zone begin");
+        // Can be fixed by enabling cuDNN.
         out = self.conv1.forward(&out)?;
-        println!("Danger zone end");
 
         out = activation.forward(&out)?;
         out = self.conv2.forward(&out)?;
