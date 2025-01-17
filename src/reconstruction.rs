@@ -3,7 +3,7 @@ use std::{error, fmt};
 use candle_core::IndexOp;
 use image::{imageops, DynamicImage, GrayImage, ImageDecoder, ImageReader};
 
-use crate::depth_pro;
+use crate::{de, depth_pro};
 
 struct SourceImage {
     img: candle_core::Tensor,
@@ -133,8 +133,11 @@ impl DepthModel<'_> {
 
         let (h, w) = depth.dims2()?;
         let mut out_image = GrayImage::new(w as u32, h as u32);
+        println!("Got output");
+        de::debug_tensor(&depth.i((100..105, 200..205))?)?;
         let min_depth = depth.min_all()?.to_scalar::<f32>()?;
         let max_depth = depth.max_all()?.to_scalar::<f32>()?;
+        println!("max d = {} min d = {}", min_depth, max_depth);
         for (y, image_row) in out_image.enumerate_rows_mut() {
             let row = depth.i(y as usize)?.to_vec1::<f32>()?;
             for ((_x, _y, pixel), depth) in image_row.zip(row.into_iter()) {

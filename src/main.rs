@@ -1,5 +1,6 @@
 use std::{env, process::exit};
 
+mod de;
 mod depth_pro;
 mod reconstruction;
 
