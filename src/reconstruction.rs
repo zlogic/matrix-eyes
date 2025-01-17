@@ -129,7 +129,7 @@ impl DepthModel<'_> {
                 return Err(err.into());
             }
         };
-        //let depth = (1.0 / depth)?;
+        let depth = (1.0 / depth)?;
 
         let (h, w) = depth.dims2()?;
         let mut out_image = GrayImage::new(w as u32, h as u32);
