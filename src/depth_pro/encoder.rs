@@ -67,8 +67,10 @@ impl<B: Backend> Attention<B> {
             .split(1, 0)
             .try_into()
             .expect("qkv should have 3 items in dimension 0");
-        let q = q.mul_scalar(self.scale);
-        let attn = softmax(q.matmul(k.swap_dims(4, 3)), 4);
+        let q = q.squeeze(0).mul_scalar(self.scale);
+        let k = k.squeeze::<4>(0);
+        let v = v.squeeze::<4>(0);
+        let attn = softmax(q.matmul(k.swap_dims(3, 2)), 3);
         let attn = attn.matmul(v.clone()).swap_dims(1, 2).reshape([b, n, c]);
         self.proj.forward(attn)
     }
@@ -85,7 +87,7 @@ where
 {
     fn new(device: &B::Device, dim: usize) -> Self {
         let initializer = Initializer::Zeros;
-        let gamma = initializer.init_with([dim], None, None, device);
+        let gamma = initializer.init([dim], device);
         Self { gamma }
     }
 
@@ -255,12 +257,10 @@ impl DinoVisionTransformerConfig {
         };
         let patch_embed = patch_embed.init(device);
         let initializer = Initializer::Zeros;
-        let cls_token = initializer.init_with([1, 1, self.embed_dim], None, None, device);
+        let cls_token = initializer.init([1, 1, self.embed_dim], device);
         let num_tokens = 1;
-        let pos_embed = initializer.init_with(
+        let pos_embed = initializer.init(
             [1, patch_embed.num_patches + num_tokens, self.embed_dim],
-            None,
-            None,
             device,
         );
         let norm = LayerNormConfig::new(self.embed_dim).init(device);
@@ -284,7 +284,7 @@ impl<B: Backend> DinoVisionTransformer<B> {
         if npatch != n || w != h {
             panic!("pos_embed interpolation is not implemented");
         }
-        self.pos_embed.val().expand(xs_shape)
+        self.pos_embed.val()
     }
 
     fn prepare_tokens_with_mask(&self, xs: Tensor<B, 4>) -> Tensor<B, 3> {
@@ -294,7 +294,9 @@ impl<B: Backend> DinoVisionTransformer<B> {
         let cls_token = self.cls_token.val().expand([b, cls_shape[1], cls_shape[2]]);
         let xs = Tensor::<B, 3>::cat(vec![cls_token, xs], 1);
         let xs_shape = xs.dims();
-        xs + self.interpolate_pos_encoding(xs_shape, w, h)
+        xs + self
+            .interpolate_pos_encoding(xs_shape, w, h)
+            .expand(xs_shape)
     }
 
     fn get_intermediate_layers_not_chunked(
@@ -450,8 +452,7 @@ where
     B: Backend,
 {
     fn create_pyramid(x: Tensor<B, 4>) -> (Tensor<B, 4>, Tensor<B, 4>, Tensor<B, 4>) {
-        // TODO: switch to bicubic once Candle is no longer used.
-        const INTERPOLATE_MODE: InterpolateMode = InterpolateMode::Nearest;
+        const INTERPOLATE_MODE: InterpolateMode = InterpolateMode::Bilinear;
         let [_b, _c, h, w] = x.dims();
         let x1 = interpolate(
             x.clone(),
@@ -565,10 +566,9 @@ where
         let (x_pyramid_encodings, highres_encodings) = self
             .patch_encoder
             .forward_features(x_pyramid_patches, &HIGHRES_LAYER_IDS);
-        let (highres_encoding0, highres_encoding1) = {
-            let mut it = highres_encodings.into_iter();
-            (it.next().take().unwrap(), it.next().take().unwrap())
-        };
+        let [highres_encoding0, highres_encoding1] = highres_encodings
+            .try_into()
+            .expect("unexpected number of highres encodings");
         let x_pyramid_encodings = Self::reshape_feature(x_pyramid_encodings, OUT_SIZE, OUT_SIZE, 1);
 
         let x_latent0_encodings = Self::reshape_feature(highres_encoding0, OUT_SIZE, OUT_SIZE, 1);
