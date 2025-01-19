@@ -1,22 +1,31 @@
 use std::{error, fmt};
 
-use candle_core::IndexOp;
+use burn::{
+    prelude::Backend,
+    tensor::{cast::ToElement as _, Float, Shape, Tensor, TensorData},
+};
 use image::{imageops, DynamicImage, GrayImage, ImageDecoder, ImageReader};
 
 use crate::depth_pro;
 
-struct SourceImage {
-    img: candle_core::Tensor,
+struct SourceImage<B>
+where
+    B: Backend,
+{
+    img: Tensor<B, 4>,
     original_size: (u32, u32),
     focal_length_35mm: Option<f32>,
 }
 
-impl SourceImage {
+impl<B> SourceImage<B>
+where
+    B: Backend,
+{
     fn load(
         path: &str,
         focal_length_35mm: Option<f32>,
-        device: &candle_core::Device,
-    ) -> Result<SourceImage, ReconstructionError> {
+        device: &B::Device,
+    ) -> Result<SourceImage<B>, ReconstructionError> {
         // TODO: use model size
         const WIDTH: usize = 1536;
         const HEIGHT: usize = 1536;
@@ -39,14 +48,11 @@ impl SourceImage {
             .into_rgb8();
         let data = img.into_raw();
 
-        let data =
-            candle_core::Tensor::from_vec(data, (HEIGHT, WIDTH, 3), device)?.permute((2, 0, 1))?;
-        let mean = candle_core::Tensor::new(&MEAN, device)?.reshape((3, 1, 1))?;
-        let std = candle_core::Tensor::new(&STD, device)?.reshape((3, 1, 1))?;
-        let img = (data.to_dtype(candle_core::DType::F32)? / 255.)?
-            .broadcast_sub(&mean)?
-            .broadcast_div(&std)?
-            .unsqueeze(0)?;
+        let data = TensorData::new(data, Shape::new([HEIGHT, WIDTH, 3]));
+        let data = Tensor::<B, 3, Float>::from_data(data, device).permute([2, 0, 1]) / 255.0;
+        let mean = Tensor::<B, 1>::from_floats(MEAN, device).reshape([3, 1, 1]);
+        let std = Tensor::<B, 1>::from_floats(STD, device).reshape([3, 1, 1]);
+        let img = ((data - mean) / std).unsqueeze();
 
         Ok(SourceImage {
             img,
@@ -77,73 +83,44 @@ impl SourceImage {
     }
 }
 
-pub struct DepthModel<'a> {
-    device: candle_core::Device,
-    vb: candle_nn::VarBuilder<'a>,
-}
-
-impl DepthModel<'_> {
-    pub fn new(checkpoint_path: &str) -> Result<DepthModel, ReconstructionError> {
-        let device = match Self::new_device() {
-            Ok(device) => device,
-            Err(err) => {
-                eprintln!("Failed to create device: {}", err);
-                return Err(err.into());
-            }
-        };
-        let vb =
-            candle_nn::VarBuilder::from_pth(checkpoint_path, candle_core::DType::F32, &device)?;
-
-        Ok(DepthModel { device, vb })
-    }
-
-    fn new_device() -> Result<candle_core::Device, candle_core::Error> {
-        if candle_core::utils::metal_is_available() {
-            candle_core::Device::new_metal(0)
-        } else if candle_core::utils::cuda_is_available() {
-            candle_core::Device::new_cuda(0)
-        } else {
-            Ok(candle_core::Device::Cpu)
+pub fn extract_depth<B>(
+    device: &B::Device,
+    model: &depth_pro::DepthProModel<B>,
+    source_path: &str,
+    destination_path: &str,
+    focal_length_35mm: Option<f32>,
+) -> Result<(), ReconstructionError>
+where
+    B: Backend,
+{
+    let img = match SourceImage::<B>::load(source_path, focal_length_35mm, device) {
+        Ok(img) => img,
+        Err(err) => {
+            eprintln!("Failed to load source image: {}", err);
+            return Err(err);
         }
-    }
+    };
+    let [_, _, _h, w] = img.img.dims();
+    let f_norm = img.focal_length_px().unwrap_or(1.0) / w as f64;
+    let inverse_depth = model.extract_depth(img.img.clone(), f_norm as f32);
 
-    pub fn extract_depth(
-        &self,
-        source_path: &str,
-        destination_path: &str,
-        focal_length_35mm: Option<f32>,
-    ) -> Result<(), ReconstructionError> {
-        let img = match SourceImage::load(source_path, focal_length_35mm, &self.device) {
-            Ok(img) => img,
-            Err(err) => {
-                eprintln!("Failed to load source image: {}", err);
-                return Err(err);
-            }
-        };
-        let (_, _, _h, w) = img.img.dims4()?;
-        let f_norm = img.focal_length_px().unwrap_or(1.0) / w as f64;
-        let depth = match depth_pro::extract_depth(self.vb.clone(), &img.img, f_norm as f32) {
-            Ok(depth) => depth,
-            Err(err) => {
-                eprintln!("Failed to run model: {}", err);
-                return Err(err.into());
-            }
-        };
-        let depth = (1.0 / depth)?;
-
-        let (h, w) = depth.dims2()?;
-        let mut out_image = GrayImage::new(w as u32, h as u32);
-        let min_depth = depth.min_all()?.to_scalar::<f32>()?;
-        let max_depth = depth.max_all()?.to_scalar::<f32>()?;
-        for (y, image_row) in out_image.enumerate_rows_mut() {
-            let row = depth.i(y as usize)?.to_vec1::<f32>()?;
-            for ((_x, _y, pixel), depth) in image_row.zip(row.into_iter()) {
-                let depth = (depth - min_depth) / (max_depth - min_depth);
-                pixel.0 = [(255.0 * depth).clamp(0.0, 255.0) as u8];
-            }
+    let [h, w] = inverse_depth.dims();
+    let mut out_image = GrayImage::new(w as u32, h as u32);
+    let min_depth = inverse_depth.clone().min().into_scalar().to_f32();
+    let max_depth = inverse_depth.clone().max().into_scalar().to_f32();
+    let inverse_depth = match inverse_depth.into_data().to_vec::<f32>() {
+        Ok(inverse_depth) => inverse_depth,
+        Err(err) => {
+            let err = err.into();
+            eprintln!("Failed to load read depth data from device: {}", err);
+            return Err(err);
         }
-        Ok(out_image.save(destination_path)?)
+    };
+    for ((_x, _y, pixel), depth) in out_image.enumerate_pixels_mut().zip(inverse_depth.iter()) {
+        let depth = (depth - min_depth) / (max_depth - min_depth);
+        pixel.0 = [(255.0 * depth).clamp(0.0, 255.0) as u8];
     }
+    Ok(out_image.save(destination_path)?)
 }
 
 #[derive(Debug)]
@@ -152,7 +129,8 @@ pub enum ReconstructionError {
     Image(image::ImageError),
     Io(std::io::Error),
     Exif(exif::Error),
-    Candle(candle_core::Error),
+    BurnRecorder(burn::record::RecorderError),
+    BurnData(burn::tensor::DataError),
 }
 
 impl fmt::Display for ReconstructionError {
@@ -162,7 +140,13 @@ impl fmt::Display for ReconstructionError {
             Self::Image(ref err) => write!(f, "Image error: {}", err),
             Self::Io(ref err) => write!(f, "IO error: {}", err),
             Self::Exif(ref err) => write!(f, "EXIF error: {}", err),
-            Self::Candle(ref err) => write!(f, "Candle error: {}", err),
+            Self::BurnRecorder(ref err) => write!(f, "Burn recorder error: {}", err),
+            Self::BurnData(burn::tensor::DataError::CastError(ref err)) => {
+                write!(f, "Burn data cast error: {}", err)
+            }
+            Self::BurnData(burn::tensor::DataError::TypeMismatch(ref str)) => {
+                write!(f, "Burn data type mismatch: {}", str)
+            }
         }
     }
 }
@@ -174,7 +158,8 @@ impl std::error::Error for ReconstructionError {
             Self::Image(ref err) => Some(err),
             Self::Io(ref err) => Some(err),
             Self::Exif(ref err) => Some(err),
-            Self::Candle(ref err) => Some(err),
+            Self::BurnRecorder(ref err) => Some(err),
+            Self::BurnData(ref _err) => None,
         }
     }
 }
@@ -197,9 +182,15 @@ impl From<exif::Error> for ReconstructionError {
     }
 }
 
-impl From<candle_core::Error> for ReconstructionError {
-    fn from(e: candle_core::Error) -> ReconstructionError {
-        Self::Candle(e)
+impl From<burn::record::RecorderError> for ReconstructionError {
+    fn from(e: burn::record::RecorderError) -> ReconstructionError {
+        Self::BurnRecorder(e)
+    }
+}
+
+impl From<burn::tensor::DataError> for ReconstructionError {
+    fn from(e: burn::tensor::DataError) -> ReconstructionError {
+        Self::BurnData(e)
     }
 }
 

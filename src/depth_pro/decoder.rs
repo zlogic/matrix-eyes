@@ -1,172 +1,170 @@
-use candle_core::{Result, Tensor};
-use candle_nn::{
-    Activation, Conv2d, Conv2dConfig, ConvTranspose2d, ConvTranspose2dConfig, Module, VarBuilder,
+use burn::{
+    config::Config,
+    module::Module,
+    nn::{
+        conv::{Conv2d, Conv2dConfig, ConvTranspose2d, ConvTranspose2dConfig},
+        PaddingConfig2d, Relu,
+    },
+    prelude::Backend,
+    tensor::Tensor,
 };
 
-struct ResidualConvUnit {
-    conv1: Conv2d,
-    conv2: Conv2d,
+#[derive(Module, Debug)]
+struct ResidualConvUnit<B: Backend> {
+    residual: Vec<Conv2d<B>>,
 }
 
-impl ResidualConvUnit {
-    fn new(num_features: usize, vb: VarBuilder) -> Result<Self> {
-        let conv_cfg = Conv2dConfig {
-            padding: 1,
-            stride: 1,
-            dilation: 1,
-            groups: 1,
-        };
-        let vb = vb.pp("residual");
-        let conv1 = candle_nn::conv2d(num_features, num_features, 3, conv_cfg, vb.pp(1))?;
-        let conv2 = candle_nn::conv2d(num_features, num_features, 3, conv_cfg, vb.pp(3))?;
+impl<B> ResidualConvUnit<B>
+where
+    B: Backend,
+{
+    fn new(device: &B::Device, num_features: usize) -> ResidualConvUnit<B> {
+        let conv1 = Conv2dConfig::new([num_features, num_features], [3, 3])
+            .with_padding(PaddingConfig2d::Explicit(1, 1))
+            .init(device);
+        let conv2 = Conv2dConfig::new([num_features, num_features], [3, 3])
+            .with_padding(PaddingConfig2d::Explicit(1, 1))
+            .init(device);
+        let residual = vec![conv1, conv2];
 
-        Ok(Self { conv1, conv2 })
+        ResidualConvUnit { residual }
     }
 
-    fn forward(&self, xs: &Tensor) -> Result<Tensor> {
-        let activation = Activation::Relu;
+    fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 4> {
+        let activation = Relu::new();
+        let mut out = input.clone();
+        for conv in &self.residual {
+            out = activation.forward(out);
+            out = conv.forward(out);
+        }
 
-        let mut out = activation.forward(xs)?;
-        // This will cause OOM issues on the last iteration, seems like a Candle bug.
-        // Can be fixed by enabling cuDNN.
-        out = self.conv1.forward(&out)?;
-
-        out = activation.forward(&out)?;
-        out = self.conv2.forward(&out)?;
-
-        out + xs
+        input + out
     }
 }
 
-struct FeatureFusionBlock {
-    res_conv_unit1: ResidualConvUnit,
-    res_conv_unit2: ResidualConvUnit,
-    deconv: Option<ConvTranspose2d>,
-    output_conv: Conv2d,
+#[derive(Module, Debug)]
+struct FeatureFusionBlock<B: Backend> {
+    resnet1: ResidualConvUnit<B>,
+    resnet2: ResidualConvUnit<B>,
+    deconv: Option<ConvTranspose2d<B>>,
+    out_conv: Conv2d<B>,
 }
 
-impl FeatureFusionBlock {
-    fn new(num_features: usize, deconv: bool, vb: VarBuilder) -> Result<Self> {
-        let res_conv_unit1 = ResidualConvUnit::new(num_features, vb.pp("resnet1"))?;
-        let res_conv_unit2 = ResidualConvUnit::new(num_features, vb.pp("resnet2"))?;
+impl<B> FeatureFusionBlock<B>
+where
+    B: Backend,
+{
+    fn new(device: &B::Device, num_features: usize, deconv: bool) -> FeatureFusionBlock<B> {
+        let resnet1 = ResidualConvUnit::new(device, num_features);
+        let resnet2 = ResidualConvUnit::new(device, num_features);
 
         let deconv = if deconv {
-            Some(candle_nn::conv_transpose2d_no_bias(
-                num_features,
-                num_features,
-                2,
-                ConvTranspose2dConfig {
-                    padding: 0,
-                    output_padding: 0,
-                    stride: 2,
-                    dilation: 1,
-                },
-                vb.pp("deconv"),
-            )?)
+            Some(
+                ConvTranspose2dConfig::new([num_features, num_features], [2, 2])
+                    .with_stride([2, 2])
+                    .with_bias(false)
+                    .init(device),
+            )
         } else {
             None
         };
 
-        let output_conv = candle_nn::conv2d(
-            num_features,
-            num_features,
-            1,
-            Conv2dConfig {
-                padding: 0,
-                stride: 1,
-                dilation: 1,
-                groups: 1,
-            },
-            vb.pp("out_conv"),
-        )?;
+        let out_conv = Conv2dConfig::new([num_features, num_features], [1, 1]).init(device);
 
-        Ok(Self {
-            res_conv_unit1,
-            res_conv_unit2,
+        FeatureFusionBlock {
+            resnet1,
+            resnet2,
             deconv,
-            output_conv,
-        })
+            out_conv,
+        }
     }
 
-    fn forward(&self, x0: Tensor, mut x1: Option<Tensor>) -> Result<Tensor> {
-        let mut out = x0;
-        if let Some(x1) = x1.take() {
+    fn forward(&self, x0: Tensor<B, 4>, mut x1: Option<Tensor<B, 4>>) -> Tensor<B, 4> {
+        let out = if let Some(x1) = x1.take() {
             // skip_add in PyTorch is just a regular addition.
-            let res = self.res_conv_unit1.forward(&x1)?;
-            drop(x1);
-            out = (out + res)?
+            let res = self.resnet1.forward(x1);
+            x0 + res
+        } else {
+            x0
         };
 
-        out = self.res_conv_unit2.forward(&out)?;
+        let out = self.resnet2.forward(out);
 
-        if let Some(ref deconv) = self.deconv {
-            out = deconv.forward(&out)?;
-        }
+        let out = if let Some(ref deconv) = self.deconv {
+            deconv.forward(out)
+        } else {
+            out
+        };
 
-        self.output_conv.forward(&out)
+        self.out_conv.forward(out)
     }
 }
 
-pub(super) struct MultiresConvDecoder {
-    convs: Vec<Conv2d>,
-    fusions: Vec<FeatureFusionBlock>,
+#[derive(Module, Debug)]
+pub(super) struct MultiresConvDecoder<B: Backend> {
+    convs: Vec<Conv2d<B>>,
+    fusions: Vec<FeatureFusionBlock<B>>,
 }
 
-impl MultiresConvDecoder {
-    pub fn new(
-        vb: VarBuilder,
+#[derive(Config, Debug)]
+pub(super) struct MultiresConvDecoderConfig {}
+
+impl MultiresConvDecoderConfig {
+    pub fn init<B>(
+        device: &B::Device,
         dims_encoder: &[usize],
         dim_decoder: usize,
-    ) -> Result<MultiresConvDecoder> {
-        let mut convs = vec![];
-        if dims_encoder[0] != dim_decoder {
-            convs.push(candle_nn::conv2d_no_bias(
-                dims_encoder[0],
-                dim_decoder,
-                1,
-                Conv2dConfig::default(),
-                vb.pp("convs").pp(0),
-            )?)
+    ) -> MultiresConvDecoder<B>
+    where
+        B: Backend,
+    {
+        let mut convs = if dims_encoder[0] != dim_decoder {
+            vec![Conv2dConfig::new([dims_encoder[0], dim_decoder], [1, 1])
+                .with_bias(false)
+                .init(device)]
+        } else {
+            vec![]
         };
-        for (i, dims_encoder_i) in dims_encoder.iter().enumerate().skip(1) {
-            convs.push(candle_nn::conv2d_no_bias(
-                *dims_encoder_i,
-                dim_decoder,
-                3,
-                Conv2dConfig {
-                    padding: 1,
-                    stride: 1,
-                    dilation: 1,
-                    groups: 1,
-                },
-                vb.pp("convs").pp(i),
-            )?)
+        for dims_encoder_i in dims_encoder.iter().skip(1) {
+            convs.push(
+                Conv2dConfig::new([*dims_encoder_i, dim_decoder], [3, 3])
+                    .with_bias(false)
+                    .with_padding(PaddingConfig2d::Explicit(1, 1))
+                    .init(device),
+            )
         }
 
         let fusions = (0..dims_encoder.len())
-            .map(|i| FeatureFusionBlock::new(dim_decoder, i != 0, vb.pp("fusions").pp(i)))
-            .collect::<Result<Vec<_>>>()?;
+            .map(|i| FeatureFusionBlock::new(device, dim_decoder, i != 0))
+            .collect::<Vec<_>>();
 
-        Ok(MultiresConvDecoder { convs, fusions })
+        MultiresConvDecoder { convs, fusions }
     }
+}
 
-    pub fn forward(&self, mut encodings: Vec<Tensor>) -> Result<(Tensor, Tensor)> {
+impl<B> MultiresConvDecoder<B>
+where
+    B: Backend,
+{
+    pub fn forward(&self, mut encodings: Vec<Tensor<B, 4>>) -> (Tensor<B, 4>, Tensor<B, 4>) {
         if encodings.len() != self.fusions.len() {
             let received = encodings.len();
             let expected = self.fusions.len();
-            candle_core::bail!("got encoder output levels {received}, expected levels {expected}")
+            panic!("got encoder output levels {received}, expected levels {expected}")
         }
 
-        let lowres_features = self
+        let last_encoding = encodings.pop().expect("empty encodings list");
+        let mut features = self
             .convs
             .last()
-            .unwrap()
-            .forward(&encodings.pop().unwrap())?;
-        let mut features = self
+            .expect("empty convs block list")
+            .forward(last_encoding);
+        let lowres_features = features.clone();
+        features = self
             .fusions
             .last()
-            .unwrap()
-            .forward(lowres_features.clone(), None)?;
+            .expect("empty fusions block list")
+            .forward(features, None);
 
         for (i, encoding) in encodings.into_iter().enumerate().rev() {
             let conv = if self.convs.len() == self.fusions.len() {
@@ -177,15 +175,13 @@ impl MultiresConvDecoder {
                 None
             };
             let features_i = if let Some(conv) = conv {
-                let features_i = conv.forward(&encoding)?;
-                drop(encoding);
-                features_i
+                conv.forward(encoding)
             } else {
                 encoding
             };
-            features = self.fusions[i].forward(features, Some(features_i))?;
+            features = self.fusions[i].forward(features, Some(features_i));
         }
 
-        Ok((features, lowres_features))
+        (features, lowres_features)
     }
 }
