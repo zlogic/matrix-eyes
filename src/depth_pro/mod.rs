@@ -117,11 +117,11 @@ impl<B: Backend> DepthProModel<B> {
         let record: DepthProModelRecord<B> =
             PyTorchFileRecorder::<FullPrecisionSettings>::default().load(load_args, device)?;
 
-        let encoder = DepthProEncoderConfig::init(device, &ENCODER_FEATURE_DIMS, DECODER_FEATURES);
+        let encoder = DepthProEncoderConfig::init(&ENCODER_FEATURE_DIMS, DECODER_FEATURES, device);
 
         let mut dims_encoder = vec![DECODER_FEATURES];
         dims_encoder.extend_from_slice(&ENCODER_FEATURE_DIMS);
-        let decoder = MultiresConvDecoderConfig::init(device, &dims_encoder, DECODER_FEATURES);
+        let decoder = MultiresConvDecoderConfig::init(&dims_encoder, DECODER_FEATURES, device);
         let head = HeadConfig {
             dim_decoder: DECODER_FEATURES,
             last_dims: [32, 1],

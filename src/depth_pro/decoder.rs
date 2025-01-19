@@ -18,7 +18,7 @@ impl<B> ResidualConvUnit<B>
 where
     B: Backend,
 {
-    fn new(device: &B::Device, num_features: usize) -> ResidualConvUnit<B> {
+    fn new(num_features: usize, device: &B::Device) -> ResidualConvUnit<B> {
         let conv1 = Conv2dConfig::new([num_features, num_features], [3, 3])
             .with_padding(PaddingConfig2d::Explicit(1, 1))
             .init(device);
@@ -54,9 +54,9 @@ impl<B> FeatureFusionBlock<B>
 where
     B: Backend,
 {
-    fn new(device: &B::Device, num_features: usize, deconv: bool) -> FeatureFusionBlock<B> {
-        let resnet1 = ResidualConvUnit::new(device, num_features);
-        let resnet2 = ResidualConvUnit::new(device, num_features);
+    fn new(num_features: usize, deconv: bool, device: &B::Device) -> FeatureFusionBlock<B> {
+        let resnet1 = ResidualConvUnit::new(num_features, device);
+        let resnet2 = ResidualConvUnit::new(num_features, device);
 
         let deconv = if deconv {
             Some(
@@ -111,9 +111,9 @@ pub(super) struct MultiresConvDecoderConfig {}
 
 impl MultiresConvDecoderConfig {
     pub fn init<B>(
-        device: &B::Device,
         dims_encoder: &[usize],
         dim_decoder: usize,
+        device: &B::Device,
     ) -> MultiresConvDecoder<B>
     where
         B: Backend,
@@ -135,7 +135,7 @@ impl MultiresConvDecoderConfig {
         }
 
         let fusions = (0..dims_encoder.len())
-            .map(|i| FeatureFusionBlock::new(device, dim_decoder, i != 0))
+            .map(|i| FeatureFusionBlock::new(dim_decoder, i != 0, device))
             .collect::<Vec<_>>();
 
         MultiresConvDecoder { convs, fusions }
