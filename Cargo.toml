@@ -17,6 +17,7 @@ kamadak-exif = { version = "0.6", default-features = false }
 default = ["wgpu"]
 ndarray = ["burn/ndarray"]
 wgpu = ["burn/wgpu"]
+candle = ["burn/candle"]
 
 [profile.release]
 strip = true

@@ -92,9 +92,8 @@ where
     }
 
     fn forward(&self, xs: Tensor<B, 3>) -> Tensor<B, 3> {
-        // broadcast_mul
         let shape = xs.shape();
-        xs.mul(self.gamma.val().expand(shape))
+        xs * self.gamma.val().expand(shape)
     }
 }
 
@@ -294,9 +293,7 @@ impl<B: Backend> DinoVisionTransformer<B> {
         let cls_token = self.cls_token.val().expand([b, cls_shape[1], cls_shape[2]]);
         let xs = Tensor::<B, 3>::cat(vec![cls_token, xs], 1);
         let xs_shape = xs.dims();
-        xs + self
-            .interpolate_pos_encoding(xs_shape, w, h)
-            .expand(xs_shape)
+        xs + self.interpolate_pos_encoding(xs_shape, w, h)
     }
 
     fn get_intermediate_layers_not_chunked(
@@ -452,7 +449,8 @@ where
     B: Backend,
 {
     fn create_pyramid(x: Tensor<B, 4>) -> (Tensor<B, 4>, Tensor<B, 4>, Tensor<B, 4>) {
-        const INTERPOLATE_MODE: InterpolateMode = InterpolateMode::Bilinear;
+        // TODO: change to bicubic when not using Candle, or once Candle supports this.
+        const INTERPOLATE_MODE: InterpolateMode = InterpolateMode::Nearest;
         let [_b, _c, h, w] = x.dims();
         let x1 = interpolate(
             x.clone(),
