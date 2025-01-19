@@ -15,11 +15,15 @@ pub struct Args {
 type Device = burn::backend::ndarray::NdArrayDevice;
 #[cfg(feature = "wgpu")]
 type Device = burn::backend::wgpu::WgpuDevice;
+#[cfg(feature = "candle")]
+type Device = burn::backend::candle::CandleDevice;
 
 #[cfg(feature = "ndarray")]
 type Backend = burn::backend::NdArray;
 #[cfg(feature = "wgpu")]
 type Backend = burn::backend::Wgpu;
+#[cfg(feature = "candle")]
+type Backend = burn::backend::Candle;
 
 const USAGE_INSTRUCTIONS: &str = "Usage: matrix-eyes [OPTIONS] <IMG_SRC>... <IMG_OUT>\n\n\
 Arguments:\
