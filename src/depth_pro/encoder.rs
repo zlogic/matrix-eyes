@@ -108,7 +108,7 @@ impl<B> Mlp<B>
 where
     B: Backend,
 {
-    fn new(device: &B::Device, in_features: usize, hidden_features: usize, bias: bool) -> Mlp<B> {
+    fn new(in_features: usize, hidden_features: usize, bias: bool, device: &B::Device) -> Mlp<B> {
         let out_features = in_features;
         let fc1 = LinearConfig::new(in_features, hidden_features)
             .with_bias(bias)
@@ -140,7 +140,7 @@ impl<B> Block<B>
 where
     B: Backend,
 {
-    fn new(device: &B::Device, dim: usize, num_heads: usize) -> Block<B> {
+    fn new(dim: usize, num_heads: usize, device: &B::Device) -> Block<B> {
         let norm1 = LayerNormConfig::new(dim).init(device);
         let attn = AttentionConfig {
             dim,
@@ -151,7 +151,7 @@ where
         .init(device);
         let ls1 = LayerScale::new(device, dim);
         let norm2 = LayerNormConfig::new(dim).init(device);
-        let mlp = Mlp::new(device, dim, dim * 4, true);
+        let mlp = Mlp::new(dim, dim * 4, true, device);
         let ls2 = LayerScale::new(device, dim);
         Block {
             norm1,
@@ -265,7 +265,7 @@ impl DinoVisionTransformerConfig {
         );
         let norm = LayerNormConfig::new(self.embed_dim).init(device);
         let blocks = (0..self.depth)
-            .map(|_i| Block::new(device, self.embed_dim, self.num_heads))
+            .map(|_i| Block::new(self.embed_dim, self.num_heads, device))
             .collect::<Vec<_>>();
         DinoVisionTransformer {
             patch_embed,
@@ -365,9 +365,9 @@ pub(super) struct DepthProEncoderConfig {}
 
 impl DepthProEncoderConfig {
     pub fn init<B>(
-        device: &B::Device,
         encoder_feature_dims: &[usize; 4],
         decoder_features: usize,
+        device: &B::Device,
     ) -> DepthProEncoder<B>
     where
         B: Backend,
