@@ -1,5 +1,3 @@
-use crate::depth_pro::debug_tensor;
-
 use super::ConvBlock;
 use burn::{
     config::Config,
@@ -65,12 +63,6 @@ impl<B: Backend> Attention<B> {
             .forward(xs)
             .reshape([b, n, 3, self.num_heads, c / self.num_heads])
             .permute([2, 0, 3, 1, 4]);
-        println!("after qkv forward {:?}", qkv.shape());
-        debug_tensor(
-            qkv.clone()
-                .slice([0..1, 0..1, 0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0, 1, 2]),
-        );
         let [q, k, v] = qkv
             .split(1, 0)
             .try_into()
@@ -78,26 +70,8 @@ impl<B: Backend> Attention<B> {
         let q = q.squeeze(0).mul_scalar(self.scale);
         let k = k.squeeze::<4>(0);
         let v = v.squeeze::<4>(0);
-        println!("after q mul {:?}", q.shape());
-        debug_tensor(
-            q.clone()
-                .slice([0..1, 0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
         let attn = softmax(q.matmul(k.swap_dims(3, 2)), 3);
-        println!("after k {:?}", attn.shape());
-        debug_tensor(
-            attn.clone()
-                .slice([0..1, 0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
         let attn = attn.matmul(v.clone()).swap_dims(1, 2).reshape([b, n, c]);
-        println!("after v {:?}", attn.shape());
-        debug_tensor(
-            attn.clone()
-                .slice([0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0]),
-        );
         self.proj.forward(attn)
     }
 }
@@ -191,36 +165,11 @@ where
 
     fn forward(&self, xs: Tensor<B, 3>) -> Tensor<B, 3> {
         let residual = xs.clone();
-        println!("before ls1 {:?}", xs.shape());
-        debug_tensor(
-            xs.clone()
-                .slice([0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0]),
-        );
         let xs = self.ls1.forward(self.attn.forward(self.norm1.forward(xs)));
         let xs = xs + residual;
-        println!("after ls1 {:?}", xs.shape());
-        debug_tensor(
-            xs.clone()
-                .slice([0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0]),
-        );
         let residual = xs.clone();
         let xs = self.ls2.forward(self.mlp.forward(self.norm2.forward(xs)));
-        println!("after ls1 {:?}", xs.shape());
-        debug_tensor(
-            xs.clone()
-                .slice([0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0]),
-        );
-        let out = xs + residual;
-        println!("after ls2 {:?}", out.shape());
-        debug_tensor(
-            out.clone()
-                .slice([0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0]),
-        );
-        out
+        xs + residual
     }
 }
 
@@ -271,12 +220,6 @@ impl<B: Backend> PatchEmbed<B> {
             panic!("image width {w} is not a multiple of patch width {patch_w}");
         }
         let xs = self.proj.forward(xs);
-        println!("after proj forward {:?}", xs.shape());
-        debug_tensor(
-            xs.clone()
-                .slice([0..1, 0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
         let [b, c, h, w] = xs.dims();
         // flatten embeddings.
         xs.reshape([b, c, h * w]).swap_dims(1, 2)
@@ -346,40 +289,14 @@ impl<B: Backend> DinoVisionTransformer<B> {
 
     fn prepare_tokens_with_mask(&self, xs: Tensor<B, 4>) -> Tensor<B, 3> {
         let [b, _nc, w, h] = xs.dims();
-        println!("before p embed {:?}", xs.dims());
-        debug_tensor(
-            xs.clone()
-                .slice([0..1, 0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
         let xs = self.patch_embed.forward(xs);
-        println!("after p embed {:?}", xs.shape());
-        debug_tensor(
-            xs.clone()
-                .slice([0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0]),
-        );
         let cls_shape = self.cls_token.dims();
         let cls_token = self.cls_token.val().expand([b, cls_shape[1], cls_shape[2]]);
         let xs = Tensor::<B, 3>::cat(vec![cls_token, xs], 1);
         let xs_shape = xs.dims();
-        println!("before x add {:?}", xs_shape);
-        debug_tensor(
-            xs.clone()
-                .slice([0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0]),
-        );
-        let out = xs
-            + self
-                .interpolate_pos_encoding(xs_shape, w, h)
-                .expand(xs_shape);
-        println!("after x add");
-        debug_tensor(
-            out.clone()
-                .slice([0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0]),
-        );
-        out
+        xs + self
+            .interpolate_pos_encoding(xs_shape, w, h)
+            .expand(xs_shape)
     }
 
     fn get_intermediate_layers_not_chunked(
@@ -391,14 +308,7 @@ impl<B: Backend> DinoVisionTransformer<B> {
         let mut output = Vec::new();
         for (i, blk) in self.blocks.iter().enumerate() {
             xs = blk.forward(xs);
-            println!("block {} result {:?}", i, xs.shape());
-            debug_tensor(
-                xs.clone()
-                    .slice([0..1, 14..18, 14..18])
-                    .squeeze_dims::<2>(&[0]),
-            );
             if blocks_to_take.contains(&i) {
-                println!("saving block {}", i);
                 output.push(xs.clone());
             }
         }
@@ -421,21 +331,7 @@ impl<B: Backend> DinoVisionTransformer<B> {
         // Based on vision_transformer.py.
         let (final_output, outputs) =
             self.get_intermediate_layers_not_chunked(xs, intermediate_blocks);
-        println!("forward before norm");
-        debug_tensor(
-            final_output
-                .clone()
-                .slice([0..1, 100..105, 100..105])
-                .squeeze_dims::<2>(&[0]),
-        );
         let final_output = self.norm.forward(final_output);
-        println!("forwardded blocks after norm");
-        debug_tensor(
-            final_output
-                .clone()
-                .slice([0..1, 100..105, 100..105])
-                .squeeze_dims::<2>(&[0]),
-        );
         (final_output, outputs)
     }
 }
@@ -583,10 +479,6 @@ where
             let x_chunk = x.clone().narrow(2, j, PATCH_SIZE);
             for i in (0..=image_size - PATCH_SIZE).step_by(patch_stride) {
                 x_patch_list.push(x_chunk.clone().narrow(3, i, PATCH_SIZE));
-                println!(
-                    "Pushing chunk {:?}",
-                    x_patch_list.iter().last().unwrap().dims()
-                );
             }
         }
         Tensor::<B, 4>::cat(x_patch_list, 0)
@@ -616,19 +508,10 @@ where
                 if i < steps - 1 {
                     w_range.end = w - padding;
                 }
-                println!(
-                    "output {:?} {:?}, {:?}, {:?}",
-                    b_range.clone(),
-                    0..c,
-                    h_range.clone(),
-                    w_range.clone()
-                );
                 let output = x.clone().slice([b_range, 0..c, h_range, w_range]);
-                println!("dims {:?}", output.dims());
                 output_row_list.push(output);
             }
             let output_row = Tensor::cat(output_row_list, 3);
-            println!("output row {:?}", output_row.dims());
             output_list.push(output_row);
         }
         Tensor::cat(output_list, 2)
@@ -677,37 +560,8 @@ where
             x2_patches.dims()[0],
         );
 
-        println!("x0_patches");
-        debug_tensor(
-            x0_patches
-                .clone()
-                .slice([0..1, 0..1, 100..105, 100..105])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
-        println!("x1_patches");
-        debug_tensor(
-            x1_patches
-                .clone()
-                .slice([0..1, 0..1, 100..105, 100..105])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
-        println!("x2_patches");
-        debug_tensor(
-            x2_patches
-                .clone()
-                .slice([0..1, 0..1, 100..105, 100..105])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
-
         let x_pyramid_patches =
             Tensor::<B, 4>::cat(vec![x0_patches, x1_patches, x2_patches.clone()], 0);
-        println!("pyramid_patches");
-        debug_tensor(
-            x_pyramid_patches
-                .clone()
-                .slice([0..1, 0..1, 100..105, 100..105])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
 
         let (x_pyramid_encodings, highres_encodings) = self
             .patch_encoder
@@ -716,33 +570,12 @@ where
             .try_into()
             .expect("unexpected number of highres encodings");
         let x_pyramid_encodings = Self::reshape_feature(x_pyramid_encodings, OUT_SIZE, OUT_SIZE, 1);
-        println!("pyramid encodings reshaped");
-        debug_tensor(
-            x_pyramid_encodings
-                .clone()
-                .slice([0..1, 0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
 
         let x_latent0_encodings = Self::reshape_feature(highres_encoding0, OUT_SIZE, OUT_SIZE, 1);
-        println!("latent encodings 0 reshaped");
-        debug_tensor(
-            x_latent0_encodings
-                .clone()
-                .slice([0..1, 0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
         let x_latent0_features = Self::merge(
             x_latent0_encodings.narrow(0, 0, batch_size * 5 * 5),
             batch_size,
             3,
-        );
-        println!("latent features 0 merged");
-        debug_tensor(
-            x_latent0_features
-                .clone()
-                .slice([0..1, 0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0, 1]),
         );
 
         let x_latent1_encodings = Self::reshape_feature(highres_encoding1, OUT_SIZE, OUT_SIZE, 1);
@@ -750,13 +583,6 @@ where
             x_latent1_encodings.narrow(0, 0, batch_size * 5 * 5),
             batch_size,
             3,
-        );
-        println!("latent features1 merged");
-        debug_tensor(
-            x_latent1_features
-                .clone()
-                .slice([0..1, 0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0, 1]),
         );
 
         let [x0_encodings, x1_encodings, x2_encodings] = x_pyramid_encodings
@@ -774,52 +600,10 @@ where
         let x_latent0_features = Self::forward_seq(&self.upsample_latent0, x_latent0_features);
         let x_latent1_features = Self::forward_seq(&self.upsample_latent1, x_latent1_features);
 
-        println!("x0f before");
-        debug_tensor(
-            x0_features
-                .clone()
-                .slice([0..1, 0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
-        println!("x1f before");
-        debug_tensor(
-            x1_features
-                .clone()
-                .slice([0..1, 0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
-        println!("x2f before");
-        debug_tensor(
-            x2_features
-                .clone()
-                .slice([0..1, 0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
         let x0_features = Self::forward_seq(&self.upsample0, x0_features);
         let x1_features = Self::forward_seq(&self.upsample1, x1_features);
         let x2_features = Self::forward_seq(&self.upsample2, x2_features);
 
-        println!("x0f after");
-        debug_tensor(
-            x0_features
-                .clone()
-                .slice([0..1, 0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
-        println!("x1f after");
-        debug_tensor(
-            x1_features
-                .clone()
-                .slice([0..1, 0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
-        println!("x2f after");
-        debug_tensor(
-            x2_features
-                .clone()
-                .slice([0..1, 0..1, 14..18, 14..18])
-                .squeeze_dims::<2>(&[0, 1]),
-        );
         let x_global_features = self.upsample_lowres.forward(x_global_features);
         let x_global_features = self
             .fuse_lowres

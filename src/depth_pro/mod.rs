@@ -155,30 +155,6 @@ impl<B: Backend> DepthProModel<B> {
         let canonical_inverse_depth = canonical_inverse_depth.squeeze::<3>(0).squeeze::<2>(0);
 
         let inverse_depth = canonical_inverse_depth.div_scalar(f_norm);
-        //inverse_depth.clamp(1e-4, 1e4)
-        inverse_depth
-    }
-}
-
-pub fn debug_tensor<B, const D: usize>(x: Tensor<B, D>) -> ()
-where
-    B: Backend,
-{
-    let d = x.dims();
-    if x.dims().len() == 2 {
-        for (i, x) in x.to_data().to_vec::<f32>().unwrap().into_iter().enumerate() {
-            if i > 0 && i % d[0] == 0 {
-                println!();
-            }
-            print!("{} ", x);
-        }
-        println!();
-    } else if x.dims().len() == 1 {
-        for x in x.to_data().to_vec::<f32>().unwrap().into_iter() {
-            print!("{} ", x);
-        }
-        println!();
-    } else {
-        println!("??? {:?}", x.dims());
+        inverse_depth.clamp(1e-4, 1e4)
     }
 }

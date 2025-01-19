@@ -6,7 +6,7 @@ use burn::{
 };
 use image::{imageops, DynamicImage, GrayImage, ImageDecoder, ImageReader};
 
-use crate::depth_pro::{self, debug_tensor};
+use crate::depth_pro;
 
 struct SourceImage<B>
 where
@@ -49,11 +49,6 @@ where
         let data = img.into_raw();
 
         let data = TensorData::new(data, Shape::new([HEIGHT, WIDTH, 3]));
-        debug_tensor(
-            Tensor::<B, 3, Float>::from_data(data.clone().convert::<f32>(), device)
-                .slice([100..105, 100..105, 0..1])
-                .squeeze_dims::<2>(&[2]),
-        );
         let data = Tensor::<B, 3, Float>::from_data(data.convert::<f32>(), device)
             .permute([2, 0, 1])
             / 255.0;
@@ -109,20 +104,12 @@ where
     };
     let [_, _, _h, w] = img.img.dims();
     let f_norm = img.focal_length_px().unwrap_or(1.0) / w as f64;
-
-    debug_tensor(
-        img.img
-            .clone()
-            .slice([0..1, 0..1, 100..105, 100..105])
-            .squeeze_dims::<2>(&[0, 1]),
-    );
     let inverse_depth = model.extract_depth(img.img.clone(), f_norm as f32);
 
     let [h, w] = inverse_depth.dims();
     let mut out_image = GrayImage::new(w as u32, h as u32);
     let min_depth = inverse_depth.clone().min().into_scalar().to_f32();
     let max_depth = inverse_depth.clone().max().into_scalar().to_f32();
-    println!("min {} max {}", min_depth, max_depth);
     let inverse_depth = match inverse_depth.into_data().to_vec::<f32>() {
         Ok(inverse_depth) => inverse_depth,
         Err(err) => {
