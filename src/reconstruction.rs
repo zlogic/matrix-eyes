@@ -49,7 +49,9 @@ where
         let data = img.into_raw();
 
         let data = TensorData::new(data, Shape::new([HEIGHT, WIDTH, 3]));
-        let data = Tensor::<B, 3, Float>::from_data(data, device).permute([2, 0, 1]) / 255.0;
+        let data = Tensor::<B, 3, Float>::from_data(data.convert::<f32>(), device)
+            .permute([2, 0, 1])
+            / 255.0;
         let mean = Tensor::<B, 1>::from_floats(MEAN, device).reshape([3, 1, 1]);
         let std = Tensor::<B, 1>::from_floats(STD, device).reshape([3, 1, 1]);
         let img = ((data - mean) / std).unsqueeze();
