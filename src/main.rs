@@ -11,6 +11,16 @@ pub struct Args {
     img_out: String,
 }
 
+#[cfg(feature = "ndarray")]
+type Device = burn::backend::ndarray::NdArrayDevice;
+#[cfg(feature = "wgpu")]
+type Device = burn::backend::wgpu::WgpuDevice;
+
+#[cfg(feature = "ndarray")]
+type Backend = burn::backend::NdArray;
+#[cfg(feature = "wgpu")]
+type Backend = burn::backend::Wgpu;
+
 const USAGE_INSTRUCTIONS: &str = "Usage: matrix-eyes [OPTIONS] <IMG_SRC>... <IMG_OUT>\n\n\
 Arguments:\
 \n  <IMG_SRC>...  Source image\
@@ -92,7 +102,8 @@ fn main() {
 
     let args = Args::parse();
 
-    let model = match reconstruction::DepthModel::new(&args.checkpoint_path) {
+    let device = Device::default();
+    let model = match depth_pro::DepthProModel::<Backend>::new(&args.checkpoint_path, &device) {
         Ok(model) => model,
         Err(err) => {
             println!("Failed to create Depth Pro model: {}", err);
@@ -100,7 +111,13 @@ fn main() {
         }
     };
 
-    if let Err(err) = model.extract_depth(&args.img_src, &args.img_out, args.focal_length) {
+    if let Err(err) = reconstruction::extract_depth(
+        &device,
+        &model,
+        &args.img_src,
+        &args.img_out,
+        args.focal_length,
+    ) {
         println!("Reconstruction failed: {}", err);
         exit(1);
     }

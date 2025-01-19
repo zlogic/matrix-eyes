@@ -8,18 +8,18 @@ license = "Apache-2.0"
 rust-version = "1.77"
 
 [dependencies]
-candle-core = { version = "0.8", default-features = false }
-candle-nn = { version = "0.8", default-features = false }
+burn = { version = "0.16", default-features = false }
+burn-import = { version = "0.16", default-features = false, features = ["pytorch"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 kamadak-exif = { version = "0.6", default-features = false }
 
 [features]
-default = []
-cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-core/cudnn"]
-metal = ["candle-core/metal", "candle-nn/metal"]
+default = ["wgpu"]
+ndarray = ["burn/ndarray"]
+wgpu = ["burn/wgpu"]
 
 [profile.release]
-strip = true
+#strip = true
 lto = true
 codegen-units = 1
 panic = "abort"
