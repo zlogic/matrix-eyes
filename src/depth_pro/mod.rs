@@ -6,7 +6,7 @@ use burn::{
         PaddingConfig2d, Relu,
     },
     prelude::Backend,
-    record::{FullPrecisionSettings, Recorder as _, RecorderError},
+    record::{FullPrecisionSettings, NamedMpkFileRecorder, Recorder as _, RecorderError},
     tensor::Tensor,
 };
 use burn_import::pytorch::{LoadArgs, PyTorchFileRecorder};
@@ -105,20 +105,26 @@ where
         const ENCODER_FEATURE_DIMS: [usize; 4] = [256, 512, 1024, 1024];
         const DECODER_FEATURES: usize = 256;
 
-        let load_args = LoadArgs::new(checkpoint_path.into())
-            // Label upsampling blocks to guide enum deserialization.
-            .with_key_remap("(encoder.upsample[^.]+)\\.0\\.weight", "$1.0.conv.weight")
-            .with_key_remap(
-                "(encoder.upsample[^.]+)\\.([0-9]+)\\.weight",
-                "$1.$2.conv_tr.weight",
-            )
-            // Label head blocks to guide enum deserialization.
-            .with_key_remap("head\\.0\\.(.+)", "head.0.conv.$1")
-            .with_key_remap("head\\.1\\.(.+)", "head.1.conv_tr.$1")
-            .with_key_remap("head\\.2\\.(.+)", "head.2.conv.$1")
-            .with_key_remap("head\\.4\\.(.+)", "head.4.conv.$1");
-        let record: DepthProModelRecord<B> =
-            PyTorchFileRecorder::<FullPrecisionSettings>::default().load(load_args, device)?;
+        let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::default();
+        let converted_filename = "ckpoints.mpk";
+        if matches!(std::fs::exists(converted_filename), Ok(false)) {
+            let load_args = LoadArgs::new(checkpoint_path.into())
+                // Label upsampling blocks to guide enum deserialization.
+                .with_key_remap("(encoder.upsample[^.]+)\\.0\\.weight", "$1.0.conv.weight")
+                .with_key_remap(
+                    "(encoder.upsample[^.]+)\\.([0-9]+)\\.weight",
+                    "$1.$2.conv_tr.weight",
+                )
+                // Label head blocks to guide enum deserialization.
+                .with_key_remap("head\\.0\\.(.+)", "head.0.conv.$1")
+                .with_key_remap("head\\.1\\.(.+)", "head.1.conv_tr.$1")
+                .with_key_remap("head\\.2\\.(.+)", "head.2.conv.$1")
+                .with_key_remap("head\\.4\\.(.+)", "head.4.conv.$1");
+            let record: DepthProModelRecord<B> =
+                PyTorchFileRecorder::<FullPrecisionSettings>::default().load(load_args, device)?;
+            recorder.record(record, converted_filename.into())?;
+        }
+        let record = recorder.load(converted_filename.into(), device)?;
 
         let encoder = DepthProEncoderConfig::init(&ENCODER_FEATURE_DIMS, DECODER_FEATURES, device);
 
