@@ -20,7 +20,7 @@ ndarray-accelerate = ["burn/ndarray", "burn/accelerate"]
 # add ndarray to fix a fusion-->ndarray-->rayon-->burn-core feature flag
 wgpu = ["burn/wgpu", "burn/fusion", "burn/ndarray"]
 wgpu-spirv = ["burn/wgpu-spirv", "burn/fusion", "burn/ndarray"]
-cuda = ["burn/cuda-jit", "burn/fusion", "burn/ndarray"]
+tch = ["burn/tch", "burn/ndarray"]
 
 [profile.release]
 strip = true
