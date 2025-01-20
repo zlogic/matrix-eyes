@@ -94,7 +94,10 @@ impl HeadConfig {
     }
 }
 
-impl<B: Backend> DepthProModel<B> {
+impl<B> DepthProModel<B>
+where
+    B: Backend,
+{
     pub fn new(checkpoint_path: &str, device: &B::Device) -> Result<DepthProModel<B>, RecorderError>
     where
         B: Backend,

@@ -16,9 +16,10 @@ kamadak-exif = { version = "0.6", default-features = false }
 [features]
 default = ["wgpu"]
 ndarray = ["burn/ndarray"]
+candle = ["burn/candle"]
 # add ndarray to fix a fusion-->ndarray-->rayon-->burn-core feature flag
 wgpu = ["burn/wgpu", "burn/fusion", "burn/ndarray"]
-candle = ["burn/candle"]
+tch = ["burn/tch", "burn/ndarray"]
 
 [profile.release]
 strip = true

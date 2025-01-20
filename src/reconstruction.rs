@@ -8,6 +8,35 @@ use image::{imageops, DynamicImage, GrayImage, ImageDecoder, ImageReader};
 
 use crate::depth_pro;
 
+#[cfg(feature = "ndarray")]
+pub type EnabledBackend = burn::backend::NdArray;
+#[cfg(feature = "wgpu")]
+pub type EnabledBackend = burn::backend::Wgpu;
+#[cfg(feature = "candle")]
+pub type EnabledBackend = burn::backend::Candle;
+#[cfg(feature = "tch")]
+pub type EnabledBackend = burn::backend::LibTorch;
+
+#[cfg(feature = "ndarray")]
+pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
+    burn::backend::ndarray::NdArrayDevice::Cpu
+}
+
+#[cfg(feature = "wgpu")]
+pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
+    burn::backend::wgpu::WgpuDevice::DefaultDevice
+}
+
+#[cfg(feature = "candle")]
+pub fn init_device() -> burn::backend::candle::CandleDevice {
+    burn::backend::candle::CandleDevice
+}
+
+#[cfg(feature = "tch")]
+pub fn init_device() -> burn::backend::libtorch::LibTorchDevice {
+    burn::backend::libtorch::LibTorchDevice::default()
+}
+
 struct SourceImage<B>
 where
     B: Backend,
