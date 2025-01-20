@@ -12,15 +12,16 @@ burn = { version = "0.16", default-features = false, features = ["autotune"] }
 burn-import = { version = "0.16", default-features = false, features = ["pytorch"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 kamadak-exif = { version = "0.6", default-features = false }
+candle-core = { version = "*", optional = true, features = ["cudnn"] }
 
 [features]
 default = ["wgpu"]
 ndarray = ["burn/ndarray"]
 ndarray-accelerate = ["burn/ndarray", "burn/accelerate"]
+candle-cuda = ["burn/candle-cuda", "dep:candle-core"]
 # add ndarray to fix a fusion-->ndarray-->rayon-->burn-core feature flag
 wgpu = ["burn/wgpu", "burn/fusion", "burn/ndarray"]
 wgpu-spirv = ["burn/wgpu-spirv", "burn/fusion", "burn/ndarray"]
-tch = ["burn/tch", "burn/ndarray"]
 
 [profile.release]
 strip = true

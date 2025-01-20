@@ -12,8 +12,8 @@ use crate::depth_pro;
 pub type EnabledBackend = burn::backend::NdArray;
 #[cfg(any(feature = "wgpu", feature = "wgpu-spirv"))]
 pub type EnabledBackend = burn::backend::Wgpu;
-#[cfg(feature = "tch")]
-pub type EnabledBackend = burn::backend::LibTorch;
+#[cfg(feature = "candle-cuda")]
+pub type EnabledBackend = burn::backend::Candle;
 
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
@@ -25,9 +25,9 @@ pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
     burn::backend::wgpu::WgpuDevice::DefaultDevice
 }
 
-#[cfg(feature = "tch")]
-pub fn init_device() -> burn::backend::libtorch::LibTorchDevice {
-    burn::backend::libtorch::LibTorchDevice::default()
+#[cfg(feature = "candle-cuda")]
+pub fn init_device() -> burn::backend::candle::CandleDevice {
+    burn::backend::candle::CandleDevice::cuda(0)
 }
 
 struct SourceImage<B>
