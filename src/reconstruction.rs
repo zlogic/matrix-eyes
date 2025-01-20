@@ -14,8 +14,6 @@ pub type EnabledBackend = burn::backend::NdArray;
 pub type EnabledBackend = burn::backend::Wgpu;
 #[cfg(feature = "candle")]
 pub type EnabledBackend = burn::backend::Candle;
-#[cfg(feature = "tch")]
-pub type EnabledBackend = burn::backend::LibTorch;
 
 #[cfg(feature = "ndarray")]
 pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
@@ -30,11 +28,6 @@ pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
 #[cfg(feature = "candle")]
 pub fn init_device() -> burn::backend::candle::CandleDevice {
     burn::backend::candle::CandleDevice
-}
-
-#[cfg(feature = "tch")]
-pub fn init_device() -> burn::backend::libtorch::LibTorchDevice {
-    burn::backend::libtorch::LibTorchDevice::default()
 }
 
 struct SourceImage<B>
