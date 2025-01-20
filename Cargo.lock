@@ -266,6 +266,7 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f90534d6c7f909a8cad49470921dc3eb2b118f7a3c8bde313defba3f4cae3ac3"
 dependencies = [
+ "burn-fusion",
  "burn-jit",
  "burn-tensor",
  "bytemuck",
@@ -285,6 +286,22 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.96",
+]
+
+[[package]]
+name = "burn-fusion"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3753a33b8084516c0b9e3040d11ccfd3a52d88495318501138c29376a54ba81f"
+dependencies = [
+ "burn-common",
+ "burn-tensor",
+ "derive-new 0.7.0",
+ "half",
+ "hashbrown 0.15.2",
+ "log",
+ "serde",
+ "spin",
 ]
 
 [[package]]
@@ -335,6 +352,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb6b06689c4e8d6cfdcaf0b0e168e58a931c3935414e48f4e3e3e85e8d7a77a0"
 dependencies = [
  "burn-common",
+ "burn-fusion",
  "burn-tensor",
  "bytemuck",
  "cubecl",
@@ -410,6 +428,7 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ef5b6c56da563a708b2da16f0559a061e7b93f3acae63903734ee978c9b9f93"
 dependencies = [
+ "burn-fusion",
  "burn-jit",
  "burn-tensor",
  "cubecl",

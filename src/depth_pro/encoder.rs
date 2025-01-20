@@ -92,8 +92,7 @@ where
     }
 
     fn forward(&self, xs: Tensor<B, 3>) -> Tensor<B, 3> {
-        let shape = xs.shape();
-        xs * self.gamma.val().expand(shape)
+        xs * self.gamma.val().unsqueeze_dims(&[0, 1])
     }
 }
 
