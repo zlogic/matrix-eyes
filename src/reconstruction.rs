@@ -10,7 +10,7 @@ use crate::depth_pro;
 
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub type EnabledBackend = burn::backend::NdArray;
-#[cfg(feature = "wgpu")]
+#[cfg(any(feature = "wgpu", feature = "wgpu-spirv"))]
 pub type EnabledBackend = burn::backend::Wgpu;
 #[cfg(feature = "cuda")]
 pub type EnabledBackend = burn::backend::CudaJit;
@@ -20,7 +20,7 @@ pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
     burn::backend::ndarray::NdArrayDevice::Cpu
 }
 
-#[cfg(feature = "wgpu")]
+#[cfg(any(feature = "wgpu", feature = "wgpu-spirv"))]
 pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
     burn::backend::wgpu::WgpuDevice::DefaultDevice
 }
