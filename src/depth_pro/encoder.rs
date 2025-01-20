@@ -448,8 +448,7 @@ where
     B: Backend,
 {
     fn create_pyramid(x: Tensor<B, 4>) -> (Tensor<B, 4>, Tensor<B, 4>, Tensor<B, 4>) {
-        // TODO: change to bicubic when not using Candle, or once Candle supports this.
-        const INTERPOLATE_MODE: InterpolateMode = InterpolateMode::Nearest;
+        const INTERPOLATE_MODE: InterpolateMode = InterpolateMode::Bilinear;
         let [_b, _c, h, w] = x.dims();
         let x1 = interpolate(
             x.clone(),

@@ -8,14 +8,14 @@ use image::{imageops, DynamicImage, GrayImage, ImageDecoder, ImageReader};
 
 use crate::depth_pro;
 
-#[cfg(feature = "ndarray")]
+#[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub type EnabledBackend = burn::backend::NdArray;
 #[cfg(feature = "wgpu")]
 pub type EnabledBackend = burn::backend::Wgpu;
-#[cfg(feature = "candle")]
-pub type EnabledBackend = burn::backend::Candle;
+#[cfg(feature = "cuda")]
+pub type EnabledBackend = burn::backend::CudaJit;
 
-#[cfg(feature = "ndarray")]
+#[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
     burn::backend::ndarray::NdArrayDevice::Cpu
 }
@@ -25,9 +25,9 @@ pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
     burn::backend::wgpu::WgpuDevice::DefaultDevice
 }
 
-#[cfg(feature = "candle")]
-pub fn init_device() -> burn::backend::candle::CandleDevice {
-    burn::backend::candle::CandleDevice
+#[cfg(feature = "cuda")]
+pub fn init_device() -> burn::backend::cuda_jit::CudaDevice {
+    burn::backend::cuda_jit::CudaDevice::default()
 }
 
 struct SourceImage<B>
