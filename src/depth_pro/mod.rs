@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use burn::{
     config::Config,
     module::Module,
@@ -98,33 +100,46 @@ impl<B> DepthProModel<B>
 where
     B: Backend,
 {
-    pub fn new(checkpoint_path: &str, device: &B::Device) -> Result<DepthProModel<B>, RecorderError>
+    pub fn new(
+        checkpoint_path: &str,
+        convert_checkpoints: bool,
+        device: &B::Device,
+    ) -> Result<DepthProModel<B>, RecorderError>
     where
         B: Backend,
     {
         const ENCODER_FEATURE_DIMS: [usize; 4] = [256, 512, 1024, 1024];
         const DECODER_FEATURES: usize = 256;
 
+        let pytorch_load_args = LoadArgs::new(checkpoint_path.into())
+            // Label upsampling blocks to guide enum deserialization.
+            .with_key_remap("(encoder.upsample[^.]+)\\.0\\.weight", "$1.0.conv.weight")
+            .with_key_remap(
+                "(encoder.upsample[^.]+)\\.([0-9]+)\\.weight",
+                "$1.$2.conv_tr.weight",
+            )
+            // Label head blocks to guide enum deserialization.
+            .with_key_remap("head\\.0\\.(.+)", "head.0.conv.$1")
+            .with_key_remap("head\\.1\\.(.+)", "head.1.conv_tr.$1")
+            .with_key_remap("head\\.2\\.(.+)", "head.2.conv.$1")
+            .with_key_remap("head\\.4\\.(.+)", "head.4.conv.$1");
+
+        let mut converted_filename = PathBuf::from(checkpoint_path);
+        converted_filename.set_extension("mpk");
+
         let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::default();
-        let converted_filename = "ckpoints.mpk";
-        if matches!(std::fs::exists(converted_filename), Ok(false)) {
-            let load_args = LoadArgs::new(checkpoint_path.into())
-                // Label upsampling blocks to guide enum deserialization.
-                .with_key_remap("(encoder.upsample[^.]+)\\.0\\.weight", "$1.0.conv.weight")
-                .with_key_remap(
-                    "(encoder.upsample[^.]+)\\.([0-9]+)\\.weight",
-                    "$1.$2.conv_tr.weight",
-                )
-                // Label head blocks to guide enum deserialization.
-                .with_key_remap("head\\.0\\.(.+)", "head.0.conv.$1")
-                .with_key_remap("head\\.1\\.(.+)", "head.1.conv_tr.$1")
-                .with_key_remap("head\\.2\\.(.+)", "head.2.conv.$1")
-                .with_key_remap("head\\.4\\.(.+)", "head.4.conv.$1");
-            let record: DepthProModelRecord<B> =
-                PyTorchFileRecorder::<FullPrecisionSettings>::default().load(load_args, device)?;
-            recorder.record(record, converted_filename.into())?;
-        }
-        let record = recorder.load(converted_filename.into(), device)?;
+        let record: DepthProModelRecord<B> = if converted_filename.exists() {
+            recorder.load(converted_filename, device)?
+        } else {
+            let record = PyTorchFileRecorder::<FullPrecisionSettings>::default()
+                .load(pytorch_load_args.clone(), device)?;
+            if convert_checkpoints {
+                recorder.record(record, converted_filename.clone())?;
+                recorder.load(converted_filename, device)?
+            } else {
+                record
+            }
+        };
 
         let encoder = DepthProEncoderConfig::init(&ENCODER_FEATURE_DIMS, DECODER_FEATURES, device);
 

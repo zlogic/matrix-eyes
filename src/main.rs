@@ -7,6 +7,7 @@ mod reconstruction;
 pub struct Args {
     focal_length: Option<f32>,
     checkpoint_path: String,
+    convert_checkpoints: bool,
     img_src: String,
     img_out: String,
 }
@@ -18,6 +19,7 @@ Arguments:\
 Options:\
 \n      --focal-length=<FOCAL_LENGTH>       Focal length in 35mm equivalent\
 \n      --checkpoint-path=<CHECKPOINT_PATH> Path to checkpoint file [default: ./checkpoints/depth_pro.pt]\
+\n      --convert-checkpoints               Optional argument to convert checkpoints into a more efficient format\
 \n      --help                              Print help";
 
 impl Args {
@@ -25,13 +27,17 @@ impl Args {
         let mut args = Args {
             focal_length: None,
             checkpoint_path: "./checkpoints/depth_pro.pt".to_string(),
+            convert_checkpoints: false,
             img_src: "".to_string(),
             img_out: "".to_string(),
         };
         for arg in env::args().skip(1) {
             if arg.starts_with("--") && args.img_src.is_empty() && args.img_out.is_empty() {
                 // Option flags.
-                if arg == "--help" {
+                if arg == "--convert-checkpoints" {
+                    args.convert_checkpoints = true;
+                    continue;
+                } else if arg == "--help" {
                     println!("{}", USAGE_INSTRUCTIONS);
                     exit(0);
                 }
@@ -95,6 +101,7 @@ fn main() {
     let device = reconstruction::init_device();
     let model = match depth_pro::DepthProModel::<reconstruction::EnabledBackend>::new(
         &args.checkpoint_path,
+        args.convert_checkpoints,
         &device,
     ) {
         Ok(model) => model,
