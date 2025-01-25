@@ -5,11 +5,20 @@ use burn::{
     tensor::{DataError, Tensor},
 };
 use image::{imageops, DynamicImage, Rgb, RgbImage};
+use rand::Rng as _;
 
 pub struct DepthMap {
     data: Vec<f32>,
-    size: (usize, usize),
-    original_size: (u32, u32),
+    data_width: usize,
+    data_height: usize,
+    original_width: u32,
+    original_height: u32,
+}
+
+#[derive(Debug, Clone)]
+pub enum ImageOutputFormat {
+    DepthMap,
+    Stereogram(Option<f32>, f32),
 }
 
 impl DepthMap {
@@ -20,14 +29,16 @@ impl DepthMap {
     where
         B: Backend,
     {
-        let [h, w] = inverse_depth.dims();
+        let [data_width, data_height] = inverse_depth.dims();
         let data = inverse_depth.to_data().to_vec()?;
-        let size = (w, h);
+        let (original_width, original_height) = original_size;
 
         Ok(DepthMap {
             data,
-            size,
-            original_size,
+            data_width,
+            data_height,
+            original_width,
+            original_height,
         })
     }
 
@@ -38,24 +49,114 @@ impl DepthMap {
                 acc.start.min(*val)..acc.end.max(*val)
             })
     }
-}
 
-pub fn output(depth_map: DepthMap, destination_path: &str) -> Result<(), OutputError> {
-    let mut out_image = RgbImage::new(depth_map.size.0 as u32, depth_map.size.1 as u32);
-
-    let depth_range = depth_map.inverse_depth_range();
-    let (min_depth, max_depth) = (depth_range.start, depth_range.end);
-    for ((_x, _y, pixel), depth) in out_image.enumerate_pixels_mut().zip(depth_map.data.iter()) {
-        let depth = (max_depth - depth) / (max_depth - min_depth);
-        *pixel = map_depth(depth);
+    #[inline]
+    fn depth_value(&self, x: usize, y: usize) -> f32 {
+        self.data[self.data_height * y + x]
     }
 
-    let out_image = DynamicImage::from(out_image).resize_exact(
-        depth_map.original_size.0,
-        depth_map.original_size.1,
-        imageops::Lanczos3,
-    );
-    Ok(out_image.save(destination_path)?)
+    #[inline]
+    fn interpolate_point(&self, x: f32, y: f32) -> f32 {
+        let x = (x * self.data_width as f32).max(0.0);
+        let y = (y * self.data_height as f32).max(0.0);
+        let x0 = (x.floor() as usize).clamp(0, self.data_width - 1);
+        let y0 = (y.floor() as usize).clamp(0, self.data_height - 1);
+        let x1 = (x0 + 1).clamp(0, self.data_width - 1);
+        let y1 = (y0 + 1).clamp(0, self.data_height - 1);
+        let x = x.fract();
+        let y = y.fract();
+
+        // Bilinear interpolation.
+        (1.0 - x) * (1.0 - y) * self.depth_value(x0, y0)
+            + x * (1.0 - y) * self.depth_value(x1, y0)
+            + (1.0 - x) * y * self.depth_value(x0, y1)
+            + x * y * self.depth_value(x1, y1)
+    }
+
+    pub fn output_image(
+        &self,
+        destination_path: &str,
+        format: ImageOutputFormat,
+    ) -> Result<(), OutputError> {
+        match format {
+            ImageOutputFormat::DepthMap => self.output_depth_map(destination_path),
+            ImageOutputFormat::Stereogram(resize_scale, amplitude) => {
+                self.output_stereogram(destination_path, resize_scale, amplitude)
+            }
+        }
+    }
+
+    fn output_depth_map(&self, destination_path: &str) -> Result<(), OutputError> {
+        let mut out_image = RgbImage::new(self.data_width as u32, self.data_height as u32);
+
+        let depth_range = self.inverse_depth_range();
+        let (min_depth, max_depth) = (depth_range.start, depth_range.end);
+        for ((_x, _y, pixel), depth) in out_image.enumerate_pixels_mut().zip(self.data.iter()) {
+            let depth = (max_depth - depth) / (max_depth - min_depth);
+            *pixel = map_depth(depth);
+        }
+
+        let out_image = DynamicImage::from(out_image).resize_exact(
+            self.original_width,
+            self.original_height,
+            imageops::Lanczos3,
+        );
+        Ok(out_image.save(destination_path)?)
+    }
+
+    fn output_stereogram(
+        &self,
+        destination_path: &str,
+        resize_scale: Option<f32>,
+        amplitude: f32,
+    ) -> Result<(), OutputError> {
+        let (output_width, output_height) = if let Some(resize_scale) = resize_scale {
+            (
+                ((self.original_width as f32) * resize_scale).round() as u32,
+                ((self.original_height as f32) * resize_scale).round() as u32,
+            )
+        } else {
+            (self.original_width, self.original_height)
+        };
+        let mut out_image = RgbImage::new(output_width, output_height);
+
+        let depth_range = self.inverse_depth_range();
+        let (min_depth, max_depth) = (depth_range.start, depth_range.end);
+
+        let depth_multiplier = output_width as f32 * amplitude;
+        let pattern_width = (depth_multiplier * 2.0).round() as usize + 16;
+
+        let mut rng = rand::thread_rng();
+        for (y, row) in out_image.enumerate_rows_mut() {
+            let noise_row = (0..output_width)
+                .map(|_x| {
+                    let mut rgb = Rgb::from([0u8, 0u8, 0u8]);
+                    rng.fill(&mut rgb.0);
+                    rgb
+                })
+                .collect::<Vec<_>>();
+            let mut output_row = noise_row.clone();
+            for x in 0..output_width {
+                let depth = self.interpolate_point(
+                    x as f32 / output_width as f32,
+                    y as f32 / output_height as f32,
+                );
+                let depth = (depth - min_depth) / (max_depth - min_depth);
+                let x = x as usize;
+                output_row[x] = if x >= pattern_width {
+                    let shift = (depth * depth_multiplier).round() as usize;
+                    output_row[x + shift - pattern_width]
+                } else {
+                    noise_row[x % pattern_width]
+                };
+            }
+            for ((_x, _y, pixel), noise_value) in row.zip(output_row) {
+                *pixel = noise_value
+            }
+        }
+
+        Ok(out_image.save(destination_path)?)
+    }
 }
 
 #[inline]

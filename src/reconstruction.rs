@@ -114,6 +114,7 @@ pub fn extract_depth<B>(
     source_path: &str,
     destination_path: &str,
     focal_length_35mm: Option<f32>,
+    image_format: output::ImageOutputFormat,
 ) -> Result<(), ReconstructionError>
 where
     B: Backend,
@@ -144,7 +145,7 @@ where
             return Err(err);
         }
     };
-    Ok(output::output(depth_map, destination_path)?)
+    Ok(depth_map.output_image(destination_path, image_format)?)
 }
 
 fn try_skip_load<B, const D: usize>(filename: &str, device: &B::Device) -> Option<Tensor<B, D>>
