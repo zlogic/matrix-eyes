@@ -1,7 +1,8 @@
-use std::{error, fmt};
+use std::{error, fmt, path::PathBuf};
 
 use burn::{
     prelude::Backend,
+    record::{FullPrecisionSettings, NamedMpkFileRecorder, Recorder as _},
     tensor::{cast::ToElement as _, Float, Shape, Tensor, TensorData},
 };
 use image::{imageops, DynamicImage, GrayImage, ImageDecoder, ImageReader};
@@ -126,7 +127,14 @@ where
     };
     let [_, _, _h, w] = img.img.dims();
     let f_norm = img.focal_length_px().unwrap_or(1.0) / w as f64;
-    let inverse_depth = model.extract_depth(img.img.clone(), f_norm as f32);
+
+    let inverse_depth = if let Some(inverse_depth) = try_skip_load("depth_map.mpk", device) {
+        inverse_depth
+    } else {
+        let inverse_depth = model.extract_depth(img.img.clone(), f_norm as f32);
+        save_tensor("depth_map.mpk", inverse_depth.clone());
+        inverse_depth
+    };
 
     let [h, w] = inverse_depth.dims();
     let mut out_image = GrayImage::new(w as u32, h as u32);
@@ -145,6 +153,31 @@ where
         pixel.0 = [(255.0 * depth).clamp(0.0, 255.0) as u8];
     }
     Ok(out_image.save(destination_path)?)
+}
+
+fn try_skip_load<B, const D: usize>(filename: &str, device: &B::Device) -> Option<Tensor<B, D>>
+where
+    B: Backend,
+{
+    let filename = PathBuf::from(filename);
+    if !filename.exists() {
+        None
+    } else {
+        let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::default();
+        recorder
+            .load(filename, device)
+            .expect("failed to load tensor")
+    }
+}
+
+fn save_tensor<B, const D: usize>(filename: &str, tensor: Tensor<B, D>)
+where
+    B: Backend,
+{
+    let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::default();
+    recorder
+        .record(tensor, filename.into())
+        .expect("failed to record tensor");
 }
 
 #[derive(Debug)]
