@@ -153,7 +153,6 @@ pub enum ReconstructionError {
     Image(image::ImageError),
     Io(std::io::Error),
     Exif(exif::Error),
-    BurnRecorder(burn::record::RecorderError),
     BurnData(burn::tensor::DataError),
 }
 
@@ -164,7 +163,6 @@ impl fmt::Display for ReconstructionError {
             Self::Image(ref err) => write!(f, "Image error: {}", err),
             Self::Io(ref err) => write!(f, "IO error: {}", err),
             Self::Exif(ref err) => write!(f, "EXIF error: {}", err),
-            Self::BurnRecorder(ref err) => write!(f, "Burn recorder error: {}", err),
             Self::BurnData(burn::tensor::DataError::CastError(ref err)) => {
                 write!(f, "Burn data cast error: {}", err)
             }
@@ -182,7 +180,6 @@ impl std::error::Error for ReconstructionError {
             Self::Image(ref err) => Some(err),
             Self::Io(ref err) => Some(err),
             Self::Exif(ref err) => Some(err),
-            Self::BurnRecorder(ref err) => Some(err),
             Self::BurnData(ref _err) => None,
         }
     }
@@ -203,12 +200,6 @@ impl From<std::io::Error> for ReconstructionError {
 impl From<exif::Error> for ReconstructionError {
     fn from(e: exif::Error) -> ReconstructionError {
         Self::Exif(e)
-    }
-}
-
-impl From<burn::record::RecorderError> for ReconstructionError {
-    fn from(e: burn::record::RecorderError) -> ReconstructionError {
-        Self::BurnRecorder(e)
     }
 }
 
