@@ -1,6 +1,7 @@
 use std::{env, process::exit};
 
 mod depth_pro;
+mod output;
 mod reconstruction;
 
 #[derive(Debug)]

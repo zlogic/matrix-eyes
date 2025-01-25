@@ -3,11 +3,11 @@ use std::{error, fmt, path::PathBuf};
 use burn::{
     prelude::Backend,
     record::{FullPrecisionSettings, NamedMpkFileRecorder, Recorder as _},
-    tensor::{cast::ToElement as _, Float, Shape, Tensor, TensorData},
+    tensor::{Float, Shape, Tensor, TensorData},
 };
-use image::{imageops, DynamicImage, GrayImage, ImageDecoder, ImageReader};
+use image::{imageops, DynamicImage, ImageDecoder, ImageReader};
 
-use crate::depth_pro;
+use crate::{depth_pro, output};
 
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub type EnabledBackend = burn::backend::NdArray;
@@ -136,23 +136,15 @@ where
         inverse_depth
     };
 
-    let [h, w] = inverse_depth.dims();
-    let mut out_image = GrayImage::new(w as u32, h as u32);
-    let min_depth = inverse_depth.clone().min().into_scalar().to_f32();
-    let max_depth = inverse_depth.clone().max().into_scalar().to_f32();
-    let inverse_depth = match inverse_depth.into_data().to_vec::<f32>() {
-        Ok(inverse_depth) => inverse_depth,
+    let depth_map = match output::DepthMap::new(inverse_depth, img.original_size) {
+        Ok(depth_map) => depth_map,
         Err(err) => {
             let err = err.into();
-            eprintln!("Failed to load read depth data from device: {}", err);
+            eprintln!("Failed to read depth data from device: {}", err);
             return Err(err);
         }
     };
-    for ((_x, _y, pixel), depth) in out_image.enumerate_pixels_mut().zip(inverse_depth.iter()) {
-        let depth = (depth - min_depth) / (max_depth - min_depth);
-        pixel.0 = [(255.0 * depth).clamp(0.0, 255.0) as u8];
-    }
-    Ok(out_image.save(destination_path)?)
+    Ok(output::output(depth_map, destination_path)?)
 }
 
 fn try_skip_load<B, const D: usize>(filename: &str, device: &B::Device) -> Option<Tensor<B, D>>
@@ -183,6 +175,7 @@ where
 #[derive(Debug)]
 pub enum ReconstructionError {
     Internal(&'static str),
+    Output(output::OutputError),
     Image(image::ImageError),
     Io(std::io::Error),
     Exif(exif::Error),
@@ -193,6 +186,7 @@ impl fmt::Display for ReconstructionError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Self::Internal(msg) => f.write_str(msg),
+            Self::Output(ref err) => write!(f, "Output error: {}", err),
             Self::Image(ref err) => write!(f, "Image error: {}", err),
             Self::Io(ref err) => write!(f, "IO error: {}", err),
             Self::Exif(ref err) => write!(f, "EXIF error: {}", err),
@@ -210,11 +204,18 @@ impl std::error::Error for ReconstructionError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match *self {
             Self::Internal(_msg) => None,
+            Self::Output(ref err) => Some(err),
             Self::Image(ref err) => Some(err),
             Self::Io(ref err) => Some(err),
             Self::Exif(ref err) => Some(err),
             Self::BurnData(ref _err) => None,
         }
+    }
+}
+
+impl From<output::OutputError> for ReconstructionError {
+    fn from(err: output::OutputError) -> ReconstructionError {
+        Self::Output(err)
     }
 }
 
