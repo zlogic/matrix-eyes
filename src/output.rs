@@ -5,7 +5,7 @@ use burn::{
     tensor::{DataError, Tensor},
 };
 use image::{
-    imageops::{self, FilterType},
+    imageops::{self},
     DynamicImage, Rgb, RgbImage,
 };
 use rand::Rng as _;
@@ -120,10 +120,6 @@ impl DepthMap {
         };
         let mut out_image = RgbImage::new(output_width, output_height);
 
-        let src_texture = DynamicImage::from(self.original_image.clone())
-            .resize_exact(output_width, output_height, FilterType::Lanczos3)
-            .into_rgb8();
-
         let depth_range = self.inverse_depth_range();
         let (min_depth, max_depth) = (depth_range.start, depth_range.end);
 
@@ -133,13 +129,10 @@ impl DepthMap {
         let mut rng = rand::thread_rng();
         for (y, row) in out_image.enumerate_rows_mut() {
             let noise_row = (0..output_width)
-                .map(|x| {
-                    /*
+                .map(|_x| {
                     let mut rgb = Rgb::from([0u8, 0u8, 0u8]);
                     rng.fill(&mut rgb.0);
                     rgb
-                    */
-                    *src_texture.get_pixel(x, y)
                 })
                 .collect::<Vec<_>>();
             let mut output_row = noise_row.clone();
