@@ -1,44 +1,66 @@
-use std::{fmt, ops::Range};
+use std::{
+    fmt,
+    fs::File,
+    io::{BufWriter, Write as _},
+    ops::Range,
+    path::Path,
+};
 
 use burn::{
     prelude::Backend,
     tensor::{DataError, Tensor},
 };
 use image::{
-    imageops::{self},
-    DynamicImage, Rgb, RgbImage,
+    imageops::{self, FilterType},
+    DynamicImage, ImageReader, Rgb, RgbImage,
 };
 use rand::Rng as _;
 
 pub struct DepthMap {
     data: Vec<f32>,
-    original_image: RgbImage,
     data_width: usize,
     data_height: usize,
+    original_width: u32,
+    original_height: u32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum ImageOutputFormat {
     DepthMap,
     Stereogram(Option<f32>, f32),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum VertexMode {
+    Plain,
+    Color,
+    Texture,
+}
+
+const POLYGON_DEPTH_THRESHOLD: f32 = 1.025;
+const CLIP_DEPTH_RANGE: Range<f32> = 0.1..250.0;
+
 impl DepthMap {
     pub fn new<B>(
         inverse_depth: Tensor<B, 2>,
-        original_image: RgbImage,
+        original_size: (u32, u32),
     ) -> Result<DepthMap, DataError>
     where
         B: Backend,
     {
+        const CLAMP_RANGE: Range<f32> = 1.0 / CLIP_DEPTH_RANGE.end..1.0 / CLIP_DEPTH_RANGE.start;
         let [data_width, data_height] = inverse_depth.dims();
-        let data = inverse_depth.to_data().to_vec()?;
+        let mut data = inverse_depth.to_data().to_vec()?;
+        data.iter_mut()
+            .for_each(|v: &mut f32| *v = v.clamp(CLAMP_RANGE.start, CLAMP_RANGE.end));
+        let (original_width, original_height) = original_size;
 
         Ok(DepthMap {
             data,
-            original_image,
             data_width,
             data_height,
+            original_width,
+            original_height,
         })
     }
 
@@ -76,12 +98,22 @@ impl DepthMap {
     pub fn output_image(
         &self,
         destination_path: &str,
-        format: ImageOutputFormat,
+        source_path: &str,
+        image_format: ImageOutputFormat,
+        vertex_mode: VertexMode,
     ) -> Result<(), OutputError> {
-        match format {
-            ImageOutputFormat::DepthMap => self.output_depth_map(destination_path),
-            ImageOutputFormat::Stereogram(resize_scale, amplitude) => {
-                self.output_stereogram(destination_path, resize_scale, amplitude)
+        if destination_path.to_lowercase().as_str().ends_with(".ply") {
+            let writer = PlyWriter::new(destination_path, vertex_mode)?;
+            self.output_mesh(source_path, writer, vertex_mode)
+        } else if destination_path.to_lowercase().as_str().ends_with(".obj") {
+            let writer = ObjWriter::new(destination_path, source_path, vertex_mode)?;
+            self.output_mesh(source_path, writer, vertex_mode)
+        } else {
+            match image_format {
+                ImageOutputFormat::DepthMap => self.output_depth_map(destination_path),
+                ImageOutputFormat::Stereogram(resize_scale, amplitude) => {
+                    self.output_stereogram(destination_path, resize_scale, amplitude)
+                }
             }
         }
     }
@@ -97,8 +129,8 @@ impl DepthMap {
         }
 
         let out_image = DynamicImage::from(out_image).resize_exact(
-            self.original_image.width(),
-            self.original_image.height(),
+            self.original_width,
+            self.original_height,
             imageops::Lanczos3,
         );
         Ok(out_image.save(destination_path)?)
@@ -112,11 +144,11 @@ impl DepthMap {
     ) -> Result<(), OutputError> {
         let (output_width, output_height) = if let Some(resize_scale) = resize_scale {
             (
-                ((self.original_image.width() as f32) * resize_scale).round() as u32,
-                ((self.original_image.height() as f32) * resize_scale).round() as u32,
+                ((self.original_width as f32) * resize_scale).round() as u32,
+                ((self.original_height as f32) * resize_scale).round() as u32,
             )
         } else {
-            (self.original_image.width(), self.original_image.height())
+            (self.original_width, self.original_height)
         };
         let mut out_image = RgbImage::new(output_width, output_height);
 
@@ -156,6 +188,442 @@ impl DepthMap {
         }
 
         Ok(out_image.save(destination_path)?)
+    }
+
+    fn output_mesh<M>(
+        &self,
+        source_path: &str,
+        mut writer: M,
+        mode: VertexMode,
+    ) -> Result<(), OutputError>
+    where
+        M: MeshWriter,
+    {
+        let indexed_mesh = IndexedMesh::new(&self.data, self.data_width, self.data_height);
+
+        let original_image = if matches!(mode, VertexMode::Color) {
+            let img = ImageReader::open(source_path)?
+                .decode()?
+                .resize_exact(
+                    self.data_width as u32,
+                    self.data_height as u32,
+                    FilterType::Lanczos3,
+                )
+                .into_rgb8();
+            Some(img)
+        } else {
+            None
+        };
+
+        // When resizing image, the larger dimension will be squished.
+        // To restore original coordinates, multiply by its squish factor.
+        let x_multiplier =
+            self.original_width as f32 / self.original_width.max(self.original_height) as f32;
+        let y_multiplier =
+            self.original_height as f32 / self.original_width.max(self.original_height) as f32;
+
+        writer.output_header(indexed_mesh.nvertices, indexed_mesh.nfaces)?;
+        for (x_image, y_image, _i, _v) in indexed_mesh.sorted_vertices().iter() {
+            let (x_norm, y_norm) = (
+                *x_image as f32 / self.data_width as f32,
+                *y_image as f32 / self.data_height as f32,
+            );
+            writer.output_vertex_uv(x_norm, y_norm)?;
+        }
+        for (x_image, y_image, i, _v) in indexed_mesh.sorted_vertices().into_iter() {
+            let color = original_image.as_ref().and_then(|img| {
+                img.get_pixel_checked(x_image as u32, y_image as u32)
+                    .map(|pixel| pixel.0)
+            });
+
+            let (x_norm, y_norm) = (
+                x_image as f32 / self.data_width as f32,
+                y_image as f32 / self.data_height as f32,
+            );
+            let z_norm = 1.0 / self.data[i];
+            let x = x_multiplier * (x_norm - 0.5) * z_norm;
+            let y = y_multiplier * (y_norm - 0.5) * z_norm;
+            writer.output_vertex(x, y, z_norm, color)?;
+        }
+
+        IndexedMesh::for_each_face(&self.data, self.data_width, self.data_height, |vertices| {
+            if let Some(face) = indexed_mesh.remap_face(vertices) {
+                writer.output_face(face)?;
+            }
+            Ok::<(), OutputError>(())
+        })?;
+
+        writer.complete()?;
+
+        Ok(())
+    }
+}
+
+struct IndexedMesh {
+    vertices: Vec<Option<usize>>,
+    width: usize,
+    nvertices: usize,
+    nfaces: usize,
+}
+
+impl IndexedMesh {
+    fn new(vertices: &[f32], width: usize, height: usize) -> IndexedMesh {
+        let mut index = vec![None; vertices.len()];
+        let mut next_vertex = 0usize;
+        let mut faces_count = 0usize;
+        Self::for_each_face(vertices, width, height, |indices| {
+            indices.iter().for_each(|i| {
+                index[*i].get_or_insert_with(|| {
+                    let value = next_vertex;
+                    next_vertex += 1;
+                    value
+                });
+            });
+            faces_count += 1;
+            Ok::<(), OutputError>(())
+        })
+        .expect("unexpected error when indexing vertices");
+        IndexedMesh {
+            vertices: index,
+            width,
+            nvertices: next_vertex,
+            nfaces: faces_count,
+        }
+    }
+
+    fn sorted_vertices(&self) -> Vec<(usize, usize, usize, usize)> {
+        let mut vertices = self
+            .vertices
+            .iter()
+            .enumerate()
+            .filter_map(|(i, v)| Some((i % self.width, i / self.width, i, (*v)?)))
+            .collect::<Vec<_>>();
+        vertices.sort_by_key(|(_x, _y, _i, v)| *v);
+        vertices
+    }
+
+    fn for_each_face<F, E>(
+        vertices: &[f32],
+        width: usize,
+        height: usize,
+        mut process_face: F,
+    ) -> Result<(), E>
+    where
+        F: FnMut([usize; 3]) -> Result<(), E>,
+    {
+        for y in 0..height - 1 {
+            for x in 0..width - 1 {
+                let i00 = y * width + x;
+                let i10 = y * width + x + 1;
+                let i01 = (y + 1) * width + x;
+                let i11 = (y + 1) * width + x + 1;
+
+                let v00 = vertices[i00];
+                let v10 = vertices[i10];
+                let v01 = vertices[i01];
+                let v11 = vertices[i11];
+
+                let i_upper_left = [i00, i01, i10];
+                let i_lower_right = [i10, i01, i11];
+                let v_upper_left = [v00, v01, v10];
+                let v_lower_right = [v10, v01, v11];
+
+                if let (Some(min), Some(max)) = (
+                    v_upper_left.iter().min_by(|a, b| a.total_cmp(b)),
+                    v_upper_left.iter().max_by(|a, b| a.total_cmp(b)),
+                ) {
+                    // TODO: use absolute scale here? or at least something that works around +- zero?
+                    if max / min <= POLYGON_DEPTH_THRESHOLD {
+                        process_face(i_upper_left)?;
+                    }
+                }
+
+                if let (Some(min), Some(max)) = (
+                    v_lower_right.iter().min_by(|a, b| a.total_cmp(b)),
+                    v_lower_right.iter().max_by(|a, b| a.total_cmp(b)),
+                ) {
+                    // TODO: use absolute scale here? or at least something that works around +- zero?
+                    if max / min <= POLYGON_DEPTH_THRESHOLD {
+                        process_face(i_lower_right)?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn remap_face(&self, original_indices: [usize; 3]) -> Option<[usize; 3]> {
+        let i0 = self.vertices[original_indices[0]]?;
+        let i1 = self.vertices[original_indices[1]]?;
+        let i2 = self.vertices[original_indices[2]]?;
+        Some([i0, i1, i2])
+    }
+}
+
+trait MeshWriter {
+    fn output_header(&mut self, nvertices: usize, nfaces: usize) -> Result<(), std::io::Error>;
+
+    fn output_vertex(
+        &mut self,
+        x: f32,
+        y: f32,
+        z: f32,
+        color: Option<[u8; 3]>,
+    ) -> Result<(), OutputError>;
+
+    fn output_vertex_uv(&mut self, u: f32, v: f32) -> Result<(), OutputError>;
+
+    fn output_face(&mut self, indices: [usize; 3]) -> Result<(), OutputError>;
+
+    fn complete(&mut self) -> Result<(), OutputError>;
+}
+
+const WRITE_BUFFER_SIZE: usize = 1024 * 1024;
+
+struct PlyWriter {
+    writer: BufWriter<File>,
+    buffer: Vec<u8>,
+    vertex_mode: VertexMode,
+}
+
+impl PlyWriter {
+    fn new(path: &str, vertex_mode: VertexMode) -> Result<PlyWriter, OutputError> {
+        let writer = BufWriter::new(File::create(path)?);
+        let buffer = Vec::with_capacity(WRITE_BUFFER_SIZE);
+
+        Ok(PlyWriter {
+            writer,
+            buffer,
+            vertex_mode,
+        })
+    }
+
+    fn check_flush_buffer(&mut self) -> Result<(), std::io::Error> {
+        let buffer = &mut self.buffer;
+        let w = &mut self.writer;
+        if buffer.len() >= WRITE_BUFFER_SIZE {
+            w.write_all(buffer)?;
+            buffer.clear();
+        }
+        Ok(())
+    }
+}
+
+impl MeshWriter for PlyWriter {
+    fn output_header(&mut self, nvertices: usize, nfaces: usize) -> Result<(), std::io::Error> {
+        self.check_flush_buffer()?;
+        let w = &mut self.buffer;
+        writeln!(w, "ply")?;
+        writeln!(w, "format binary_big_endian 1.0")?;
+        writeln!(w, "comment Matrix Eyes 3D surface")?;
+        writeln!(w, "element vertex {}", nvertices)?;
+        writeln!(w, "property double x")?;
+        writeln!(w, "property double y")?;
+        writeln!(w, "property double z")?;
+
+        match self.vertex_mode {
+            VertexMode::Plain => {}
+            VertexMode::Texture => {}
+            VertexMode::Color => {
+                writeln!(w, "property uchar red")?;
+                writeln!(w, "property uchar green")?;
+                writeln!(w, "property uchar blue")?;
+            }
+        }
+        writeln!(w, "element face {}", nfaces)?;
+        writeln!(w, "property list uchar int vertex_indices")?;
+        writeln!(w, "end_header")
+    }
+
+    fn output_vertex(
+        &mut self,
+        x: f32,
+        y: f32,
+        z: f32,
+        color: Option<[u8; 3]>,
+    ) -> Result<(), OutputError> {
+        self.check_flush_buffer()?;
+        let w = &mut self.buffer;
+
+        let (x, y, z) = (x as f64, -y as f64, -z as f64);
+        w.write_all(&x.to_be_bytes())?;
+        w.write_all(&y.to_be_bytes())?;
+        w.write_all(&z.to_be_bytes())?;
+        if let Some(color) = color {
+            w.write_all(&color)?;
+        };
+        Ok(())
+    }
+
+    fn output_vertex_uv(&mut self, _u: f32, _v: f32) -> Result<(), OutputError> {
+        Ok(())
+    }
+
+    fn output_face(&mut self, indices: [usize; 3]) -> Result<(), OutputError> {
+        self.check_flush_buffer()?;
+        let w = &mut self.buffer;
+        const NUM_POINTS: [u8; 1] = 3u8.to_be_bytes();
+        w.write_all(&NUM_POINTS)?;
+        w.write_all(&(indices[0] as u32).to_be_bytes())?;
+        w.write_all(&(indices[1] as u32).to_be_bytes())?;
+        w.write_all(&(indices[2] as u32).to_be_bytes())?;
+        Ok(())
+    }
+
+    fn complete(&mut self) -> Result<(), OutputError> {
+        let buffer = &mut self.buffer;
+        let w = &mut self.writer;
+        w.write_all(buffer)?;
+        buffer.clear();
+        Ok(())
+    }
+}
+
+struct ObjWriter {
+    writer: BufWriter<File>,
+    buffer: Vec<u8>,
+    vertex_mode: VertexMode,
+    path: String,
+    image_path: String,
+}
+
+impl ObjWriter {
+    fn new(
+        path: &str,
+        image_path: &str,
+        vertex_mode: VertexMode,
+    ) -> Result<ObjWriter, OutputError> {
+        let writer = BufWriter::new(File::create(path)?);
+        let buffer = Vec::with_capacity(WRITE_BUFFER_SIZE);
+        Ok(ObjWriter {
+            writer,
+            buffer,
+            vertex_mode,
+            path: path.to_string(),
+            image_path: image_path.to_string(),
+        })
+    }
+
+    fn check_flush_buffer(&mut self) -> Result<(), std::io::Error> {
+        let buffer = &mut self.buffer;
+        let w = &mut self.writer;
+        if buffer.len() >= WRITE_BUFFER_SIZE {
+            w.write_all(buffer)?;
+            buffer.clear();
+        }
+        Ok(())
+    }
+
+    fn get_output_filename(&self) -> Option<String> {
+        Path::new(&self.path)
+            .file_stem()
+            .and_then(|n| n.to_str().map(|n| n.to_string()))
+    }
+
+    fn write_materials(&mut self) -> Result<(), OutputError> {
+        let out_filename = match self.vertex_mode {
+            VertexMode::Plain | VertexMode::Color => return Ok(()),
+            VertexMode::Texture => self.get_output_filename().unwrap(),
+        };
+
+        let destination_path = Path::new(&self.path).parent().unwrap();
+        let mut w = BufWriter::new(File::create(
+            destination_path.join(format!("{}.mtl", out_filename)),
+        )?);
+
+        writeln!(w, "newmtl Textured")?;
+        writeln!(w, "Ka 0.2 0.2 0.2")?;
+        writeln!(w, "Kd 0.8 0.8 0.8")?;
+        writeln!(w, "Ks 1.0 1.0 1.0")?;
+        writeln!(w, "illum 2")?;
+        writeln!(w, "Ns 0.000500")?;
+        writeln!(w, "map_Ka {}", self.image_path)?;
+        writeln!(w, "map_Kd {}", self.image_path)?;
+        writeln!(w)?;
+
+        Ok(())
+    }
+}
+
+impl MeshWriter for ObjWriter {
+    fn output_header(&mut self, _nvertices: usize, _nfaces: usize) -> Result<(), std::io::Error> {
+        self.check_flush_buffer()?;
+        let out_filename = self.get_output_filename().unwrap();
+        let w = &mut self.buffer;
+
+        match self.vertex_mode {
+            VertexMode::Plain | VertexMode::Color => {}
+            VertexMode::Texture => {
+                writeln!(w, "mtllib {}.mtl", out_filename)?;
+                writeln!(w, "usemtl Textured")?;
+            }
+        }
+        Ok(())
+    }
+
+    fn output_vertex(
+        &mut self,
+        x: f32,
+        y: f32,
+        z: f32,
+        color: Option<[u8; 3]>,
+    ) -> Result<(), OutputError> {
+        self.check_flush_buffer()?;
+        let w = &mut self.buffer;
+
+        let (x, y, z) = (x as f64, -y as f64, -z as f64);
+        write!(w, "v {} {} {}", x, y, z)?;
+        if let Some(color) = color {
+            write!(
+                w,
+                " {} {} {}",
+                color[0] as f64 / 255.0,
+                color[1] as f64 / 255.0,
+                color[2] as f64 / 255.0,
+            )?
+        }
+        writeln!(w)?;
+
+        Ok(())
+    }
+
+    fn output_vertex_uv(&mut self, u: f32, v: f32) -> Result<(), OutputError> {
+        self.check_flush_buffer()?;
+        match self.vertex_mode {
+            VertexMode::Plain | VertexMode::Color => {}
+            VertexMode::Texture => {
+                let w = &mut self.buffer;
+                writeln!(w, "vt {} {}", u as f64, 1.0f64 - v as f64)?
+            }
+        }
+        Ok(())
+    }
+
+    fn output_face(&mut self, indices: [usize; 3]) -> Result<(), OutputError> {
+        self.check_flush_buffer()?;
+        write!(self.buffer, "f")?;
+        for index in indices {
+            let index = index + 1;
+            match self.vertex_mode {
+                VertexMode::Plain | VertexMode::Color => {
+                    write!(self.buffer, " {}", index)?;
+                }
+                VertexMode::Texture => {
+                    write!(self.buffer, " {}/{}", index, index)?;
+                }
+            }
+        }
+        writeln!(self.buffer)?;
+        Ok(())
+    }
+
+    fn complete(&mut self) -> Result<(), OutputError> {
+        let buffer = &mut self.buffer;
+        let w = &mut self.writer;
+        w.write_all(buffer)?;
+        buffer.clear();
+        self.write_materials()?;
+        Ok(())
     }
 }
 

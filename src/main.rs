@@ -1,5 +1,7 @@
 use std::{env, process::exit};
 
+use output::{ImageOutputFormat, VertexMode};
+
 mod depth_pro;
 mod output;
 mod reconstruction;
@@ -9,7 +11,8 @@ pub struct Args {
     focal_length: Option<f32>,
     checkpoint_path: String,
     convert_checkpoints: bool,
-    output_format: output::ImageOutputFormat,
+    output_format: ImageOutputFormat,
+    vertex_mode: VertexMode,
     img_src: String,
     img_out: String,
 }
@@ -21,9 +24,10 @@ Arguments:\
 Options:\
 \n      --focal-length=<FOCAL_LENGTH>       Focal length in 35mm equivalent\
 \n      --checkpoint-path=<CHECKPOINT_PATH> Path to checkpoint file [default: ./checkpoints/depth_pro.pt]\
-\n      --output-format=<FORMAT>            Format for output [default: depthmap for images, mesh for meshes] [possible values: depthmap, stereogram]\
+\n      --image-output-format=<FORMAT>      Format for output [default: depthmap] [possible values: depthmap, stereogram]\
 \n      --resize-scale=<SCALE>              Custom scale for stereogram output [default: 1.0]\
 \n      --stereo-amplitude=<AMPLITUDE>      Custom scale for stereogram output [default: 0.0625]\
+\n      --mesh=<MESH>                       Mesh options [default: vertex-colors] [possible values: plain, vertex-colors, texture-coordinates]\
 \n      --convert-checkpoints               Convert checkpoints into a more efficient format [default: disabled]\
 \n      --help                              Print help";
 
@@ -33,14 +37,14 @@ impl Args {
             focal_length: None,
             checkpoint_path: "./checkpoints/depth_pro.pt".to_string(),
             convert_checkpoints: false,
-            output_format: output::ImageOutputFormat::DepthMap,
+            output_format: ImageOutputFormat::DepthMap,
+            vertex_mode: VertexMode::Color,
             img_src: "".to_string(),
             img_out: "".to_string(),
         };
         let mut resize_scale = None;
         let mut stereo_amplitude = 1.0 / 16.0;
-        let default_stereogram =
-            output::ImageOutputFormat::Stereogram(resize_scale, stereo_amplitude);
+        let default_stereogram = ImageOutputFormat::Stereogram(resize_scale, stereo_amplitude);
         for arg in env::args().skip(1) {
             if arg.starts_with("--") && args.img_src.is_empty() && args.img_out.is_empty() {
                 // Option flags.
@@ -70,10 +74,10 @@ impl Args {
                             exit(2)
                         }
                     };
-                } else if name == "--output-format" {
+                } else if name == "--image-output-format" {
                     args.output_format = match value.to_lowercase().as_str() {
-                        "depthmap" => output::ImageOutputFormat::DepthMap,
-                        "stereogram" => default_stereogram.clone(),
+                        "depthmap" => ImageOutputFormat::DepthMap,
+                        "stereogram" => default_stereogram,
                         _ => {
                             eprintln!("Unsupported output format {}", value);
                             println!("{}", USAGE_INSTRUCTIONS);
@@ -104,6 +108,17 @@ impl Args {
                             exit(2)
                         }
                     };
+                } else if name == "--mesh" {
+                    match value.to_lowercase().as_str() {
+                        "plain" => args.vertex_mode = VertexMode::Plain,
+                        "vertex-colors" => args.vertex_mode = VertexMode::Color,
+                        "texture-coordinates" => args.vertex_mode = VertexMode::Texture,
+                        _ => {
+                            eprintln!("Unsupported mesh vertex output mode {}", value);
+                            println!("{}", USAGE_INSTRUCTIONS);
+                            exit(2);
+                        }
+                    };
                 } else if name == "--checkpoint-path" {
                     args.checkpoint_path = value.to_string();
                 } else {
@@ -120,12 +135,8 @@ impl Args {
             }
         }
 
-        match args.output_format {
-            output::ImageOutputFormat::Stereogram(_, _) => {
-                args.output_format =
-                    output::ImageOutputFormat::Stereogram(resize_scale, stereo_amplitude)
-            }
-            _ => {}
+        if matches!(args.output_format, ImageOutputFormat::Stereogram(_, _)) {
+            args.output_format = ImageOutputFormat::Stereogram(resize_scale, stereo_amplitude)
         }
 
         if args.img_src.is_empty() {
@@ -170,6 +181,7 @@ fn main() {
         &args.img_out,
         args.focal_length,
         args.output_format,
+        args.vertex_mode,
     ) {
         println!("Reconstruction failed: {}", err);
         exit(1);

@@ -115,6 +115,7 @@ pub fn extract_depth<B>(
     destination_path: &str,
     focal_length_35mm: Option<f32>,
     image_format: output::ImageOutputFormat,
+    vertex_mode: output::VertexMode,
 ) -> Result<(), ReconstructionError>
 where
     B: Backend,
@@ -137,16 +138,7 @@ where
         inverse_depth
     };
 
-    let original_image = match ImageReader::open(source_path) {
-        Ok(img) => img,
-        Err(err) => {
-            eprintln!("Failed to load source image for texture: {}", err);
-            return Err(err.into());
-        }
-    };
-    let original_image = original_image.decode()?.into_rgb8();
-
-    let depth_map = match output::DepthMap::new(inverse_depth, original_image) {
+    let depth_map = match output::DepthMap::new(inverse_depth, img.original_size) {
         Ok(depth_map) => depth_map,
         Err(err) => {
             let err = err.into();
@@ -154,7 +146,7 @@ where
             return Err(err);
         }
     };
-    Ok(depth_map.output_image(destination_path, image_format)?)
+    Ok(depth_map.output_image(destination_path, source_path, image_format, vertex_mode)?)
 }
 
 fn try_skip_load<B, const D: usize>(filename: &str, device: &B::Device) -> Option<Tensor<B, D>>
