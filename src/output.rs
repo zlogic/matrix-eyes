@@ -4,15 +4,17 @@ use burn::{
     prelude::Backend,
     tensor::{DataError, Tensor},
 };
-use image::{imageops, DynamicImage, Rgb, RgbImage};
+use image::{
+    imageops::{self, FilterType},
+    DynamicImage, Rgb, RgbImage,
+};
 use rand::Rng as _;
 
 pub struct DepthMap {
     data: Vec<f32>,
+    original_image: RgbImage,
     data_width: usize,
     data_height: usize,
-    original_width: u32,
-    original_height: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -24,21 +26,19 @@ pub enum ImageOutputFormat {
 impl DepthMap {
     pub fn new<B>(
         inverse_depth: Tensor<B, 2>,
-        original_size: (u32, u32),
+        original_image: RgbImage,
     ) -> Result<DepthMap, DataError>
     where
         B: Backend,
     {
         let [data_width, data_height] = inverse_depth.dims();
         let data = inverse_depth.to_data().to_vec()?;
-        let (original_width, original_height) = original_size;
 
         Ok(DepthMap {
             data,
+            original_image,
             data_width,
             data_height,
-            original_width,
-            original_height,
         })
     }
 
@@ -97,8 +97,8 @@ impl DepthMap {
         }
 
         let out_image = DynamicImage::from(out_image).resize_exact(
-            self.original_width,
-            self.original_height,
+            self.original_image.width(),
+            self.original_image.height(),
             imageops::Lanczos3,
         );
         Ok(out_image.save(destination_path)?)
@@ -112,27 +112,34 @@ impl DepthMap {
     ) -> Result<(), OutputError> {
         let (output_width, output_height) = if let Some(resize_scale) = resize_scale {
             (
-                ((self.original_width as f32) * resize_scale).round() as u32,
-                ((self.original_height as f32) * resize_scale).round() as u32,
+                ((self.original_image.width() as f32) * resize_scale).round() as u32,
+                ((self.original_image.height() as f32) * resize_scale).round() as u32,
             )
         } else {
-            (self.original_width, self.original_height)
+            (self.original_image.width(), self.original_image.height())
         };
         let mut out_image = RgbImage::new(output_width, output_height);
+
+        let src_texture = DynamicImage::from(self.original_image.clone())
+            .resize_exact(output_width, output_height, FilterType::Lanczos3)
+            .into_rgb8();
 
         let depth_range = self.inverse_depth_range();
         let (min_depth, max_depth) = (depth_range.start, depth_range.end);
 
         let depth_multiplier = output_width as f32 * amplitude;
-        let pattern_width = (depth_multiplier * 2.0).round() as usize + 16;
+        let pattern_width = (depth_multiplier * 2.0 + amplitude).round() as usize;
 
         let mut rng = rand::thread_rng();
         for (y, row) in out_image.enumerate_rows_mut() {
             let noise_row = (0..output_width)
-                .map(|_x| {
+                .map(|x| {
+                    /*
                     let mut rgb = Rgb::from([0u8, 0u8, 0u8]);
                     rng.fill(&mut rgb.0);
                     rgb
+                    */
+                    *src_texture.get_pixel(x, y)
                 })
                 .collect::<Vec<_>>();
             let mut output_row = noise_row.clone();

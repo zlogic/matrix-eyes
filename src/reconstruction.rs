@@ -137,7 +137,16 @@ where
         inverse_depth
     };
 
-    let depth_map = match output::DepthMap::new(inverse_depth, img.original_size) {
+    let original_image = match ImageReader::open(source_path) {
+        Ok(img) => img,
+        Err(err) => {
+            eprintln!("Failed to load source image for texture: {}", err);
+            return Err(err.into());
+        }
+    };
+    let original_image = original_image.decode()?.into_rgb8();
+
+    let depth_map = match output::DepthMap::new(inverse_depth, original_image) {
         Ok(depth_map) => depth_map,
         Err(err) => {
             let err = err.into();
