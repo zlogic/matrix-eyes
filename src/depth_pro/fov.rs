@@ -34,7 +34,7 @@ impl<B> FOVNetwork<B>
 where
     B: Backend,
 {
-    pub fn forward(&self, x: Tensor<B, 4>, lowres_feature: Tensor<B, 4>) -> Tensor<B, 0> {
+    pub fn forward(&self, x: Tensor<B, 4>, lowres_feature: Tensor<B, 4>) -> Tensor<B, 1> {
         const INTERPOLATE_MODE: InterpolateMode = if cfg!(feature = "candle-cuda") {
             InterpolateMode::Nearest
         } else {
@@ -75,7 +75,7 @@ where
         let x = self.head[2].forward(x);
 
         println!("x squeeze {:?}", x.dims());
-        x.squeeze_dims(&[])
+        x.squeeze_dims(&[0, 1, 2])
     }
 }
 
