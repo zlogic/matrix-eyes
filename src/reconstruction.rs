@@ -128,12 +128,12 @@ where
         }
     };
     let [_, _, _h, w] = img.img.dims();
-    let f_norm = img.focal_length_px().unwrap_or(1.0) / w as f64;
+    let f_norm = img.focal_length_px().map(|f_px| (f_px / w as f64) as f32);
 
     let inverse_depth = if let Some(inverse_depth) = try_skip_load("depth_map.mpk", device) {
         inverse_depth
     } else {
-        let inverse_depth = model.extract_depth(img.img.clone(), f_norm as f32);
+        let inverse_depth = model.extract_depth(img.img.clone(), f_norm);
         save_tensor("depth_map.mpk", inverse_depth.clone());
         inverse_depth
     };

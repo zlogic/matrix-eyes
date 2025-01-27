@@ -9,14 +9,17 @@ use burn::{
     },
     prelude::Backend,
     record::{FullPrecisionSettings, NamedMpkFileRecorder, Recorder as _, RecorderError},
-    tensor::Tensor,
+    tensor::{cast::ToElement as _, Tensor},
 };
 use burn_import::pytorch::{LoadArgs, PyTorchFileRecorder};
 use decoder::{MultiresConvDecoder, MultiresConvDecoderConfig};
 use encoder::{DepthProEncoder, DepthProEncoderConfig};
+use fov::{FOVNetwork, FOVNetworkConfig};
 
 mod decoder;
 mod encoder;
+mod fov;
+mod vit;
 
 #[derive(Module, Debug)]
 struct ConvBlock<B: Backend> {
@@ -44,6 +47,7 @@ where
 pub struct DepthProModel<B: Backend> {
     encoder: DepthProEncoder<B>,
     decoder: MultiresConvDecoder<B>,
+    fov: FOVNetwork<B>,
     head: Vec<ConvBlock<B>>,
 }
 
@@ -113,16 +117,19 @@ where
 
         let pytorch_load_args = LoadArgs::new(checkpoint_path.into())
             // Label upsampling blocks to guide enum deserialization.
-            .with_key_remap("(encoder.upsample[^.]+)\\.0\\.weight", "$1.0.conv.weight")
             .with_key_remap(
-                "(encoder.upsample[^.]+)\\.([0-9]+)\\.weight",
+                "^(encoder\\.upsample[^.]+)\\.0\\.weight",
+                "$1.0.conv.weight",
+            )
+            .with_key_remap(
+                "^(encoder\\.upsample[^.]+)\\.([0-9]+)\\.weight",
                 "$1.$2.conv_tr.weight",
             )
             // Label head blocks to guide enum deserialization.
-            .with_key_remap("head\\.0\\.(.+)", "head.0.conv.$1")
-            .with_key_remap("head\\.1\\.(.+)", "head.1.conv_tr.$1")
-            .with_key_remap("head\\.2\\.(.+)", "head.2.conv.$1")
-            .with_key_remap("head\\.4\\.(.+)", "head.4.conv.$1");
+            .with_key_remap("^head\\.0\\.(.+)", "head.0.conv.$1")
+            .with_key_remap("^head\\.1\\.(.+)", "head.1.conv_tr.$1")
+            .with_key_remap("^head\\.2\\.(.+)", "head.2.conv.$1")
+            .with_key_remap("^head\\.4\\.(.+)", "head.4.conv.$1");
 
         let mut converted_filename = PathBuf::from(checkpoint_path);
         converted_filename.set_extension("mpk");
@@ -146,6 +153,9 @@ where
         let mut dims_encoder = vec![DECODER_FEATURES];
         dims_encoder.extend_from_slice(&ENCODER_FEATURE_DIMS);
         let decoder = MultiresConvDecoderConfig::init(&dims_encoder, DECODER_FEATURES, device);
+
+        let fov = FOVNetworkConfig::init(DECODER_FEATURES, device);
+
         let head = HeadConfig {
             dim_decoder: DECODER_FEATURES,
             last_dims: [32, 1],
@@ -155,19 +165,19 @@ where
         let model = DepthProModel::<B> {
             encoder,
             decoder,
+            fov,
             head,
         };
         Ok(model.load_record(record))
     }
 
-    pub fn extract_depth(&self, img: Tensor<B, 4>, f_norm: f32) -> Tensor<B, 2>
+    pub fn extract_depth(&self, img: Tensor<B, 4>, f_norm: Option<f32>) -> Tensor<B, 2>
     where
         B: Backend,
     {
-        let encodings = self.encoder.forward_encodings(img);
+        let encodings = self.encoder.forward_encodings(img.clone());
 
         let (features, features_0) = self.decoder.forward(encodings);
-        drop(features_0);
 
         let features = self.head[0].forward(features);
         let features = self.head[1].forward(features);
@@ -177,6 +187,18 @@ where
         let canonical_inverse_depth = Relu::new().forward(features);
 
         let canonical_inverse_depth = canonical_inverse_depth.squeeze::<3>(0).squeeze::<2>(0);
+
+        // TODO: skip FOV if already have EXIF data.
+        println!("FOV from exif: {:?}", f_norm);
+        let f_norm = None;
+
+        let f_norm = if let Some(f_norm) = f_norm {
+            f_norm
+        } else {
+            let fov_deg = self.fov.forward(img, features_0).into_scalar().to_f32();
+            0.5 / (0.5 * (fov_deg * std::f32::consts::PI / 180.0)).tan()
+        };
+        println!("FOV from NN: {:?}", f_norm);
 
         let inverse_depth = canonical_inverse_depth.div_scalar(f_norm);
         inverse_depth.clamp(1e-4, 1e4)
