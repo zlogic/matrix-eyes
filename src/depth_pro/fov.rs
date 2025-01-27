@@ -41,40 +41,28 @@ where
             InterpolateMode::Bilinear
         };
         let [_b, _c, h, w] = x.dims();
-        println!("interpolate");
         let x = interpolate(x, [w / 4, h / 4], InterpolateOptions::new(INTERPOLATE_MODE));
         let x = if let [EncoderBlock::Encoder(encoder), EncoderBlock::Linear(linear)] =
             self.encoder.as_slice()
         {
-            println!("encoder forward");
             let x = encoder.forward_features(x, &[]).0;
-            println!("linear forward");
             linear.forward(x)
         } else {
             panic!("fov encoder has unexpected blocks configuration")
         };
         let [_, x_dim1, _] = x.dims();
-        println!("x narrow {:?}", x.dims());
         let x = x.narrow(1, 1, x_dim1 - 1).permute([0, 2, 1]);
 
-        println!("downsample forward {:?}", lowres_feature.dims());
         let lowres_feature = self.downsample[0].forward(lowres_feature);
         let lowres_feature = Relu::new().forward(lowres_feature);
-        println!("lowres add {:?} {:?}", lowres_feature.dims(), x.dims());
         let x = x.reshape(lowres_feature.dims()) + lowres_feature;
 
-        println!("x head0 {:?}", x.dims());
         let x = self.head[0].forward(x);
-        println!("x relu {:?}", x.dims());
         let x = Relu::new().forward(x);
-        println!("x head1 {:?}", x.dims());
         let x = self.head[1].forward(x);
-        println!("x relu {:?}", x.dims());
         let x = Relu::new().forward(x);
-        println!("x head2 {:?}", x.dims());
         let x = self.head[2].forward(x);
 
-        println!("x squeeze {:?}", x.dims());
         x.squeeze_dims(&[0, 1, 2])
     }
 }
