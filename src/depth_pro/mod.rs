@@ -188,9 +188,6 @@ where
 
         let canonical_inverse_depth = canonical_inverse_depth.squeeze::<3>(0).squeeze::<2>(0);
 
-        // TODO: skip FOV if already have EXIF data.
-        let f_norm = None;
-
         let f_norm = if let Some(f_norm) = f_norm {
             f_norm
         } else {
