@@ -175,6 +175,7 @@ where
     where
         B: Backend,
     {
+        println!("FOV from exif: {:?}", f_norm);
         let encodings = self.encoder.forward_encodings(img.clone());
 
         let (features, features_0) = self.decoder.forward(encodings);
@@ -189,14 +190,14 @@ where
         let canonical_inverse_depth = canonical_inverse_depth.squeeze::<3>(0).squeeze::<2>(0);
 
         // TODO: skip FOV if already have EXIF data.
-        println!("FOV from exif: {:?}", f_norm);
         let f_norm = None;
 
         let f_norm = if let Some(f_norm) = f_norm {
             f_norm
         } else {
             let fov_deg = self.fov.forward(img, features_0).into_scalar().to_f32();
-            0.5 / (0.5 * (fov_deg * std::f32::consts::PI / 180.0)).tan()
+            println!("fov_deg={:?}", fov_deg);
+            (0.5 * (fov_deg * std::f32::consts::PI / 180.0)).tan() / 0.5
         };
         println!("FOV from NN: {:?}", f_norm);
 

@@ -127,8 +127,9 @@ where
             return Err(err);
         }
     };
-    let [_, _, _h, w] = img.img.dims();
-    let f_norm = img.focal_length_px().map(|f_px| (f_px / w as f64) as f32);
+    let f_norm = img
+        .focal_length_px()
+        .map(|f_px| (f_px / img.original_size.0 as f64) as f32);
 
     let inverse_depth = if let Some(inverse_depth) = try_skip_load("depth_map.mpk", device) {
         inverse_depth
