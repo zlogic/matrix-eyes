@@ -11,13 +11,13 @@ use crate::{depth_pro, output};
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub type EnabledBackend = burn::backend::NdArray;
 #[cfg(feature = "wgpu")]
-pub type EnabledBackend = burn::backend::Wgpu<burn::tensor::f16, i32>;
+pub type EnabledBackend = burn::backend::Wgpu;
 #[cfg(feature = "wgpu-spirv")]
-pub type EnabledBackend = burn::backend::Wgpu<burn::tensor::f16, i32>;
+pub type EnabledBackend = burn::backend::Wgpu<burn::tensor::f16>;
 #[cfg(feature = "candle-cuda")]
-pub type EnabledBackend = burn::backend::Candle;
+pub type EnabledBackend = burn::backend::Candle<burn::tensor::f16>;
 #[cfg(feature = "cuda-jit")]
-pub type EnabledBackend = burn::backend::CudaJit<burn::tensor::f16, i32>;
+pub type EnabledBackend = burn::backend::CudaJit<burn::tensor::bf16>;
 
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
