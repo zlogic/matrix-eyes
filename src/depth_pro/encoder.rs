@@ -123,12 +123,11 @@ where
     B: Backend,
 {
     fn create_pyramid(x: Tensor<B, 4>) -> (Tensor<B, 4>, Tensor<B, 4>, Tensor<B, 4>) {
-        const INTERPOLATE_MODE: InterpolateMode =
-            if cfg!(any(feature = "candle-cuda", feature = "candle-metal")) {
-                InterpolateMode::Nearest
-            } else {
-                InterpolateMode::Bilinear
-            };
+        const INTERPOLATE_MODE: InterpolateMode = if cfg!(feature = "candle-cuda") {
+            InterpolateMode::Nearest
+        } else {
+            InterpolateMode::Bilinear
+        };
         let [_b, _c, h, w] = x.dims();
         let x1 = interpolate(
             x.clone(),

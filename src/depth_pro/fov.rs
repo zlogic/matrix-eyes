@@ -35,12 +35,11 @@ where
     B: Backend,
 {
     pub fn forward(&self, x: Tensor<B, 4>, lowres_feature: Tensor<B, 4>) -> Tensor<B, 1> {
-        const INTERPOLATE_MODE: InterpolateMode =
-            if cfg!(any(feature = "candle-cuda", feature = "candle-metal")) {
-                InterpolateMode::Nearest
-            } else {
-                InterpolateMode::Bilinear
-            };
+        const INTERPOLATE_MODE: InterpolateMode = if cfg!(feature = "candle-cuda") {
+            InterpolateMode::Nearest
+        } else {
+            InterpolateMode::Bilinear
+        };
         let [_b, _c, h, w] = x.dims();
         let x = interpolate(x, [w / 4, h / 4], InterpolateOptions::new(INTERPOLATE_MODE));
         let x = self.encoder.fov_encoder.forward_features(x, &[]).0;
