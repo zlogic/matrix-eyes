@@ -10,7 +10,9 @@ use crate::{depth_pro, output};
 
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub type EnabledBackend = burn::backend::NdArray;
-#[cfg(any(feature = "wgpu", feature = "wgpu-spirv"))]
+#[cfg(feature = "wgpu")]
+pub type EnabledBackend = burn::backend::Wgpu<burn::tensor::f16, i32>;
+#[cfg(feature = "wgpu-spirv")]
 pub type EnabledBackend = burn::backend::Wgpu<burn::tensor::f16, i32>;
 #[cfg(feature = "candle-cuda")]
 pub type EnabledBackend = burn::backend::Candle;

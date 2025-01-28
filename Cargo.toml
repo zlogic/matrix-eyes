@@ -14,6 +14,7 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg"]
 kamadak-exif = { version = "0.6", default-features = false }
 rand = { version = "*", features = ["std", "std_rng", "small_rng"] }
 candle-core = { version = "*", optional = true, features = ["cudnn"] }
+cudarc = { version = "*", optional = true, default-features = false, features = ["std", "driver", "cuda-version-from-build-system", "f16"] }
 
 [features]
 default = ["wgpu"]
@@ -23,7 +24,7 @@ candle-cuda = ["burn/candle-cuda", "dep:candle-core"]
 # add ndarray to fix a fusion-->ndarray-->rayon-->burn-core feature flag
 wgpu = ["burn/wgpu", "burn/fusion", "burn/ndarray"]
 wgpu-spirv = ["burn/wgpu-spirv", "burn/fusion", "burn/ndarray"]
-cuda-jit = ["burn/cuda-jit", "burn/fusion", "burn/ndarray"]
+cuda-jit = ["burn/cuda-jit", "burn/fusion", "burn/ndarray", "dep:cudarc"]
 
 [profile.release]
 strip = true

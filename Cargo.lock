@@ -1828,6 +1828,7 @@ dependencies = [
  "burn",
  "burn-import",
  "candle-core",
+ "cudarc",
  "image",
  "kamadak-exif",
  "rand",
