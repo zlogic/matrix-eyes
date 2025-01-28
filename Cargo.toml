@@ -16,10 +16,11 @@ rand = { version = "*", features = ["std", "std_rng", "small_rng"] }
 candle-core = { version = "*", optional = true, features = ["cudnn"] }
 
 [features]
-default = ["wgpu"]
+default = ["candle-metal"]
 ndarray = ["burn/ndarray"]
 ndarray-accelerate = ["burn/ndarray", "burn/accelerate"]
 candle-cuda = ["burn/candle-cuda", "dep:candle-core"]
+candle-metal = ["burn/candle", "burn/metal"]
 # add ndarray to fix a fusion-->ndarray-->rayon-->burn-core feature flag
 wgpu = ["burn/wgpu", "burn/fusion", "burn/autotune", "burn/ndarray"]
 wgpu-spirv = ["burn/wgpu-spirv", "burn/fusion", "burn/autotune", "burn/ndarray"]
