@@ -1,8 +1,7 @@
-use std::{error, fmt, path::PathBuf};
+use std::{error, fmt};
 
 use burn::{
     prelude::Backend,
-    record::{FullPrecisionSettings, NamedMpkFileRecorder, Recorder as _},
     tensor::{Float, Shape, Tensor, TensorData},
 };
 use image::{imageops, DynamicImage, ImageDecoder, ImageReader};
@@ -110,7 +109,7 @@ where
 
 pub fn extract_depth<B>(
     device: &B::Device,
-    model: &depth_pro::DepthProModel<B>,
+    model_loader: &depth_pro::DepthProModelLoader,
     source_path: &str,
     destination_path: &str,
     focal_length_35mm: Option<f32>,
@@ -131,12 +130,12 @@ where
         .focal_length_px()
         .map(|f_px| (f_px / img.original_size.0 as f64) as f32);
 
-    let inverse_depth = if let Some(inverse_depth) = try_skip_load("depth_map.mpk", device) {
-        inverse_depth
-    } else {
-        let inverse_depth = model.extract_depth(img.img.clone(), f_norm);
-        save_tensor("depth_map.mpk", inverse_depth.clone());
-        inverse_depth
+    let inverse_depth = match model_loader.extract_depth(img.img.clone(), f_norm, device) {
+        Ok(inverse_depth) => inverse_depth,
+        Err(err) => {
+            eprintln!("Failed to extract depth from image: {}", err);
+            return Err(err.into());
+        }
     };
 
     let depth_map = match output::DepthMap::new(inverse_depth, img.original_size) {
@@ -150,34 +149,10 @@ where
     Ok(depth_map.output_image(destination_path, source_path, image_format, vertex_mode)?)
 }
 
-fn try_skip_load<B, const D: usize>(filename: &str, device: &B::Device) -> Option<Tensor<B, D>>
-where
-    B: Backend,
-{
-    let filename = PathBuf::from(filename);
-    if !filename.exists() {
-        None
-    } else {
-        let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::default();
-        recorder
-            .load(filename, device)
-            .expect("failed to load tensor")
-    }
-}
-
-fn save_tensor<B, const D: usize>(filename: &str, tensor: Tensor<B, D>)
-where
-    B: Backend,
-{
-    let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::default();
-    recorder
-        .record(tensor, filename.into())
-        .expect("failed to record tensor");
-}
-
 #[derive(Debug)]
 pub enum ReconstructionError {
     Internal(&'static str),
+    Model(depth_pro::ModelError),
     Output(output::OutputError),
     Image(image::ImageError),
     Io(std::io::Error),
@@ -189,6 +164,7 @@ impl fmt::Display for ReconstructionError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Self::Internal(msg) => f.write_str(msg),
+            Self::Model(ref err) => write!(f, "Model error: {}", err),
             Self::Output(ref err) => write!(f, "Output error: {}", err),
             Self::Image(ref err) => write!(f, "Image error: {}", err),
             Self::Io(ref err) => write!(f, "IO error: {}", err),
@@ -207,12 +183,19 @@ impl std::error::Error for ReconstructionError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match *self {
             Self::Internal(_msg) => None,
+            Self::Model(ref err) => Some(err),
             Self::Output(ref err) => Some(err),
             Self::Image(ref err) => Some(err),
             Self::Io(ref err) => Some(err),
             Self::Exif(ref err) => Some(err),
             Self::BurnData(ref _err) => None,
         }
+    }
+}
+
+impl From<depth_pro::ModelError> for ReconstructionError {
+    fn from(err: depth_pro::ModelError) -> ReconstructionError {
+        Self::Model(err)
     }
 }
 

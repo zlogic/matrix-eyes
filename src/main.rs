@@ -162,21 +162,12 @@ fn main() {
     let args = Args::parse();
 
     let device = reconstruction::init_device();
-    let model = match depth_pro::DepthProModel::<reconstruction::EnabledBackend>::new(
-        &args.checkpoint_path,
-        args.convert_checkpoints,
-        &device,
-    ) {
-        Ok(model) => model,
-        Err(err) => {
-            println!("Failed to create Depth Pro model: {}", err);
-            exit(1);
-        }
-    };
+    let model_loader =
+        depth_pro::DepthProModelLoader::new(&args.checkpoint_path, args.convert_checkpoints);
 
-    if let Err(err) = reconstruction::extract_depth(
+    if let Err(err) = reconstruction::extract_depth::<reconstruction::EnabledBackend>(
         &device,
-        &model,
+        &model_loader,
         &args.img_src,
         &args.img_out,
         args.focal_length,

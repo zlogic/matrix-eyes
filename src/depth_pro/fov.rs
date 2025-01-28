@@ -18,14 +18,14 @@ use super::vit::{self, DinoVisionTransformer};
 const EMBED_DIM: usize = vit::EMBED_DIM;
 
 #[derive(Module, Debug)]
-enum EncoderBlock<B: Backend> {
-    Encoder(DinoVisionTransformer<B>),
-    Linear(Linear<B>),
+struct Encoder<B: Backend> {
+    fov_encoder: DinoVisionTransformer<B>,
+    linear: Linear<B>,
 }
 
 #[derive(Module, Debug)]
 pub(super) struct FOVNetwork<B: Backend> {
-    encoder: Vec<EncoderBlock<B>>,
+    encoder: Encoder<B>,
     downsample: Vec<Conv2d<B>>,
     head: Vec<Conv2d<B>>,
 }
@@ -42,14 +42,9 @@ where
         };
         let [_b, _c, h, w] = x.dims();
         let x = interpolate(x, [w / 4, h / 4], InterpolateOptions::new(INTERPOLATE_MODE));
-        let x = if let [EncoderBlock::Encoder(encoder), EncoderBlock::Linear(linear)] =
-            self.encoder.as_slice()
-        {
-            let x = encoder.forward_features(x, &[]).0;
-            linear.forward(x)
-        } else {
-            panic!("fov encoder has unexpected blocks configuration")
-        };
+        let x = self.encoder.fov_encoder.forward_features(x, &[]).0;
+        let x = self.encoder.linear.forward(x);
+
         let [_, x_dim1, _] = x.dims();
         let x = x.narrow(1, 1, x_dim1 - 1).permute([0, 2, 1]);
 
@@ -94,10 +89,10 @@ impl FOVNetworkConfig {
             Conv2dConfig::new([num_features / 8, 1], [6, 6]).init(device),
         ];
 
-        let encoder = vec![
-            EncoderBlock::Encoder(fov_encoder),
-            EncoderBlock::Linear(LinearConfig::new(EMBED_DIM, num_features / 2).init(device)),
-        ];
+        let encoder = Encoder {
+            fov_encoder,
+            linear: LinearConfig::new(EMBED_DIM, num_features / 2).init(device),
+        };
 
         FOVNetwork {
             encoder,

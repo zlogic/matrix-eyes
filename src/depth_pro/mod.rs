@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{error, fmt, path::Path};
 
 use burn::{
     config::Config,
@@ -41,14 +41,6 @@ where
             }
         }
     }
-}
-
-#[derive(Module, Debug)]
-pub struct DepthProModel<B: Backend> {
-    encoder: DepthProEncoder<B>,
-    decoder: MultiresConvDecoder<B>,
-    fov: FOVNetwork<B>,
-    head: Vec<ConvBlock<B>>,
 }
 
 #[derive(Config, Debug)]
@@ -100,22 +92,50 @@ impl HeadConfig {
     }
 }
 
-impl<B> DepthProModel<B>
-where
-    B: Backend,
-{
-    pub fn new(
-        checkpoint_path: &str,
-        convert_checkpoints: bool,
+#[derive(Module, Debug)]
+struct PartEncoder<B: Backend> {
+    encoder: DepthProEncoder<B>,
+}
+
+#[derive(Module, Debug)]
+struct PartDecoder<B: Backend> {
+    decoder: MultiresConvDecoder<B>,
+}
+
+#[derive(Module, Debug)]
+struct PartHead<B: Backend> {
+    head: Vec<ConvBlock<B>>,
+}
+
+#[derive(Module, Debug)]
+struct PartFOV<B: Backend> {
+    fov: FOVNetwork<B>,
+}
+
+pub struct DepthProModelLoader {
+    checkpoint_path: String,
+    convert_checkpoints: bool,
+}
+
+impl DepthProModelLoader {
+    pub fn new(checkpoint_path: &str, convert_checkpoints: bool) -> DepthProModelLoader {
+        DepthProModelLoader {
+            checkpoint_path: checkpoint_path.to_string(),
+            convert_checkpoints,
+        }
+    }
+
+    fn load_record<M, B>(
+        &self,
+        model: M,
+        suffix: &str,
         device: &B::Device,
-    ) -> Result<DepthProModel<B>, RecorderError>
+    ) -> Result<M, RecorderError>
     where
+        M: Module<B>,
         B: Backend,
     {
-        const ENCODER_FEATURE_DIMS: [usize; 4] = [256, 512, 1024, 1024];
-        const DECODER_FEATURES: usize = 256;
-
-        let pytorch_load_args = LoadArgs::new(checkpoint_path.into())
+        let pytorch_load_args = LoadArgs::new(self.checkpoint_path.as_str().into())
             // Label upsampling blocks to guide enum deserialization.
             .with_key_remap(
                 "^(encoder\\.upsample[^.]+)\\.0\\.weight",
@@ -129,73 +149,133 @@ where
             .with_key_remap("^head\\.0\\.(.+)", "head.0.conv.$1")
             .with_key_remap("^head\\.1\\.(.+)", "head.1.conv_tr.$1")
             .with_key_remap("^head\\.2\\.(.+)", "head.2.conv.$1")
-            .with_key_remap("^head\\.4\\.(.+)", "head.4.conv.$1");
+            .with_key_remap("^head\\.4\\.(.+)", "head.4.conv.$1")
+            // Label fov encoder to avoid using vec/enums.
+            .with_key_remap("^fov.encoder\\.0\\.(.+)", "fov.encoder.fov_encoder.$1")
+            .with_key_remap("^fov.encoder\\.1\\.(.+)", "fov.encoder.linear.$1");
 
-        let mut converted_filename = PathBuf::from(checkpoint_path);
-        converted_filename.set_extension("mpk");
+        let converted_filename = Path::new(&self.checkpoint_path);
+        let converted_filename = converted_filename
+            .with_file_name(
+                converted_filename
+                    .file_stem()
+                    .and_then(|filename| filename.to_str())
+                    .map_or(suffix.to_string(), |filename| {
+                        format!("{}-{}", filename, suffix)
+                    }),
+            )
+            .with_extension("mpk")
+            .to_path_buf();
 
         let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::default();
-        let record: DepthProModelRecord<B> = if converted_filename.exists() {
+        let record: M::Record = if converted_filename.exists() {
             recorder.load(converted_filename, device)?
         } else {
             let record = PyTorchFileRecorder::<FullPrecisionSettings>::default()
                 .load(pytorch_load_args.clone(), device)?;
-            if convert_checkpoints {
+            if self.convert_checkpoints {
                 recorder.record(record, converted_filename.clone())?;
                 recorder.load(converted_filename, device)?
             } else {
                 record
             }
         };
-
-        let encoder = DepthProEncoderConfig::init(&ENCODER_FEATURE_DIMS, DECODER_FEATURES, device);
-
-        let mut dims_encoder = vec![DECODER_FEATURES];
-        dims_encoder.extend_from_slice(&ENCODER_FEATURE_DIMS);
-        let decoder = MultiresConvDecoderConfig::init(&dims_encoder, DECODER_FEATURES, device);
-
-        let fov = FOVNetworkConfig::init(DECODER_FEATURES, device);
-
-        let head = HeadConfig {
-            dim_decoder: DECODER_FEATURES,
-            last_dims: [32, 1],
-        }
-        .init(device);
-
-        let model = DepthProModel::<B> {
-            encoder,
-            decoder,
-            fov,
-            head,
-        };
         Ok(model.load_record(record))
     }
 
-    pub fn extract_depth(&self, img: Tensor<B, 4>, f_norm: Option<f32>) -> Tensor<B, 2>
+    pub fn extract_depth<B>(
+        &self,
+        img: Tensor<B, 4>,
+        f_norm: Option<f32>,
+        device: &B::Device,
+    ) -> Result<Tensor<B, 2>, ModelError>
     where
         B: Backend,
     {
-        let encodings = self.encoder.forward_encodings(img.clone());
+        const ENCODER_FEATURE_DIMS: [usize; 4] = [256, 512, 1024, 1024];
+        const DECODER_FEATURES: usize = 256;
 
-        let (features, features_0) = self.decoder.forward(encodings);
+        let encodings = {
+            let encoder =
+                DepthProEncoderConfig::init(&ENCODER_FEATURE_DIMS, DECODER_FEATURES, device);
+            let encoder = PartEncoder { encoder };
+            let encoder = self
+                .load_record(encoder, "encoder", device)
+                .map_err(|err| ModelError::Internal("Failed to load depth model", err))?
+                .encoder;
+            encoder.forward_encodings(img.clone())
+        };
 
-        let features = self.head[0].forward(features);
-        let features = self.head[1].forward(features);
-        let features = self.head[2].forward(features);
-        let features = Relu::new().forward(features);
-        let features = self.head[3].forward(features);
-        let canonical_inverse_depth = Relu::new().forward(features);
+        let (features, features_0) = {
+            let mut dims_encoder = vec![DECODER_FEATURES];
+            dims_encoder.extend_from_slice(&ENCODER_FEATURE_DIMS);
+            let decoder = MultiresConvDecoderConfig::init(&dims_encoder, DECODER_FEATURES, device);
+            let decoder = PartDecoder { decoder };
+            let decoder = self
+                .load_record(decoder, "decoder", device)
+                .map_err(|err| ModelError::Internal("Failed to load decoder model", err))?
+                .decoder;
+            decoder.forward(encodings)
+        };
+
+        let canonical_inverse_depth = {
+            let head = HeadConfig {
+                dim_decoder: DECODER_FEATURES,
+                last_dims: [32, 1],
+            }
+            .init(device);
+            let head = PartHead { head };
+            let head = self
+                .load_record(head, "head", device)
+                .map_err(|err| ModelError::Internal("Failed to load head model", err))?
+                .head;
+
+            let features = head[0].forward(features);
+            let features = head[1].forward(features);
+            let features = head[2].forward(features);
+            let features = Relu::new().forward(features);
+            let features = head[3].forward(features);
+            Relu::new().forward(features)
+        };
 
         let canonical_inverse_depth = canonical_inverse_depth.squeeze::<3>(0).squeeze::<2>(0);
 
         let f_norm = if let Some(f_norm) = f_norm {
             f_norm
         } else {
-            let fov_deg = self.fov.forward(img, features_0).into_scalar().to_f32();
+            let fov = FOVNetworkConfig::init(DECODER_FEATURES, device);
+            let fov = PartFOV { fov };
+            let fov = self
+                .load_record(fov, "fov", device)
+                .map_err(|err| ModelError::Internal("Failed to load fov model", err))?
+                .fov;
+
+            let fov_deg = fov.forward(img, features_0).into_scalar().to_f32();
             (0.5 * (fov_deg * std::f32::consts::PI / 180.0)).tan() / 0.5
         };
 
         let inverse_depth = canonical_inverse_depth.div_scalar(f_norm);
-        inverse_depth.clamp(1e-4, 1e4)
+        Ok(inverse_depth.clamp(1e-4, 1e4))
+    }
+}
+
+#[derive(Debug)]
+pub enum ModelError {
+    Internal(&'static str, RecorderError),
+}
+
+impl fmt::Display for ModelError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Self::Internal(msg, ref err) => write!(f, "Model error: {}: {}", msg, err),
+        }
+    }
+}
+
+impl std::error::Error for ModelError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match *self {
+            Self::Internal(_msg, ref err) => Some(err),
+        }
     }
 }
