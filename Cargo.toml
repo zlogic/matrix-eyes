@@ -8,7 +8,7 @@ license = "Apache-2.0"
 rust-version = "1.77"
 
 [dependencies]
-burn = { version = "0.16", default-features = false, features = ["std", "autotune"] }
+burn = { version = "0.16", default-features = false, features = ["std"] }
 burn-import = { version = "0.16", default-features = false, features = ["pytorch"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 kamadak-exif = { version = "0.6", default-features = false }
@@ -17,14 +17,13 @@ candle-core = { version = "*", optional = true, features = ["cudnn"] }
 
 [features]
 default = ["wgpu"]
-f16 = []
 ndarray = ["burn/ndarray"]
 ndarray-accelerate = ["burn/ndarray", "burn/accelerate"]
-candle-cuda = ["burn/candle-cuda", "dep:candle-core", "f16"]
+candle-cuda = ["burn/candle-cuda", "dep:candle-core"]
 # add ndarray to fix a fusion-->ndarray-->rayon-->burn-core feature flag
-wgpu = ["burn/wgpu", "burn/fusion", "burn/ndarray"]
-wgpu-spirv = ["burn/wgpu-spirv", "burn/fusion", "burn/ndarray", "f16"]
-cuda-jit = ["burn/cuda-jit", "burn/fusion", "burn/ndarray", "f16"]
+wgpu = ["burn/wgpu", "burn/fusion", "burn/autotune", "burn/ndarray"]
+wgpu-spirv = ["burn/wgpu-spirv", "burn/fusion", "burn/autotune", "burn/ndarray"]
+cuda-jit = ["burn/cuda-jit", "burn/fusion", "burn/autotune", "burn/ndarray"]
 
 [profile.release]
 strip = true

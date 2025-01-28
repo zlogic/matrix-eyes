@@ -8,21 +8,16 @@ use image::{imageops, DynamicImage, ImageDecoder, ImageReader};
 
 use crate::{depth_pro, output};
 
-#[cfg(feature = "f16")]
-type FloatType = burn::tensor::f16;
-#[cfg(not(feature = "f16"))]
-type FloatType = f32;
-
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub type EnabledBackend = burn::backend::NdArray;
 #[cfg(feature = "wgpu")]
 pub type EnabledBackend = burn::backend::Wgpu;
 #[cfg(feature = "wgpu-spirv")]
-pub type EnabledBackend = burn::backend::Wgpu<FloatType>;
+pub type EnabledBackend = burn::backend::Wgpu;
 #[cfg(feature = "candle-cuda")]
-pub type EnabledBackend = burn::backend::Candle<FloatType>;
+pub type EnabledBackend = burn::backend::Candle;
 #[cfg(feature = "cuda-jit")]
-pub type EnabledBackend = burn::backend::CudaJit<FloatType>;
+pub type EnabledBackend = burn::backend::CudaJit;
 
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
