@@ -23,6 +23,7 @@ candle-cuda = ["burn/candle-cuda", "dep:candle-core"]
 # add ndarray to fix a fusion-->ndarray-->rayon-->burn-core feature flag
 wgpu = ["burn/wgpu", "burn/fusion", "burn/ndarray"]
 wgpu-spirv = ["burn/wgpu-spirv", "burn/fusion", "burn/ndarray"]
+cuda-jit = ["burn/cuda-jit", "burn/fusion", "burn/ndarray"]
 
 [profile.release]
 strip = true

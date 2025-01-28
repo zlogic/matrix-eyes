@@ -14,6 +14,8 @@ pub type EnabledBackend = burn::backend::NdArray;
 pub type EnabledBackend = burn::backend::Wgpu;
 #[cfg(feature = "candle-cuda")]
 pub type EnabledBackend = burn::backend::Candle;
+#[cfg(feature = "cuda-jit")]
+pub type EnabledBackend = burn::backend::CudaJit;
 
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
@@ -28,6 +30,11 @@ pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
 #[cfg(feature = "candle-cuda")]
 pub fn init_device() -> burn::backend::candle::CandleDevice {
     burn::backend::candle::CandleDevice::cuda(0)
+}
+
+#[cfg(feature = "cuda-jit")]
+pub fn init_device() -> burn::backend::cuda_jit::CudaDevice {
+    burn::backend::cuda_jit::CudaDevice::default()
 }
 
 struct SourceImage<B>

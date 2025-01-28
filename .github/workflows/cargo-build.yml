@@ -116,7 +116,7 @@ jobs:
         - arch: x86_64
           acceleration: wgpu-spirv
         - arch: x86_64
-          acceleration: wgpu
+          acceleration: cuda-jit
         - arch: x86_64
           acceleration: ndarray
         - arch: aarch64
