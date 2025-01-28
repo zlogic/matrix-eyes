@@ -13,7 +13,8 @@ burn-import = { version = "0.16", default-features = false, features = ["pytorch
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 kamadak-exif = { version = "0.6", default-features = false }
 rand = { version = "*", features = ["std", "std_rng", "small_rng"] }
-candle-core = { version = "*", optional = true, features = ["cudnn"] }
+candle-core = { git = "https://github.com/huggingface/candle.git", rev = "e142bf9", optional = true, features = ["cudnn"] }
+candle-metal-kernels = { git = "https://github.com/huggingface/candle.git", rev = "e142bf9", optional = true }
 
 [features]
 default = ["candle-metal"]
