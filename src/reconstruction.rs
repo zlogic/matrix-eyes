@@ -2,22 +2,27 @@ use std::{error, fmt};
 
 use burn::{
     prelude::Backend,
-    tensor::{Float, Shape, Tensor, TensorData},
+    tensor::{Float, Tensor, TensorData},
 };
 use image::{imageops, DynamicImage, ImageDecoder, ImageReader};
 
 use crate::{depth_pro, output};
+
+#[cfg(feature = "f16")]
+type FloatType = burn::tensor::f16;
+#[cfg(not(feature = "f16"))]
+type FloatType = f32;
 
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub type EnabledBackend = burn::backend::NdArray;
 #[cfg(feature = "wgpu")]
 pub type EnabledBackend = burn::backend::Wgpu;
 #[cfg(feature = "wgpu-spirv")]
-pub type EnabledBackend = burn::backend::Wgpu<burn::tensor::f16>;
+pub type EnabledBackend = burn::backend::Wgpu<FloatType>;
 #[cfg(feature = "candle-cuda")]
-pub type EnabledBackend = burn::backend::Candle<burn::tensor::f16>;
+pub type EnabledBackend = burn::backend::Candle<FloatType>;
 #[cfg(feature = "cuda-jit")]
-pub type EnabledBackend = burn::backend::CudaJit<burn::tensor::bf16>;
+pub type EnabledBackend = burn::backend::CudaJit<FloatType>;
 
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
@@ -79,12 +84,14 @@ where
             .into_rgb8();
         let data = img.into_raw();
 
-        let data = TensorData::new(data, Shape::new([HEIGHT, WIDTH, 3]));
-        let data = Tensor::<B, 3, Float>::from_data(data.convert::<f32>(), device)
+        let data = TensorData::new(data, [HEIGHT, WIDTH, 3]);
+        let data = Tensor::<B, 3, Float>::from_data(data.convert::<FloatType>(), device)
             .permute([2, 0, 1])
             / 255.0;
-        let mean = Tensor::<B, 1>::from_floats(MEAN, device).reshape([3, 1, 1]);
-        let std = Tensor::<B, 1>::from_floats(STD, device).reshape([3, 1, 1]);
+        let mean = TensorData::new(MEAN.to_vec(), [3, 1, 1]).convert::<FloatType>();
+        let std = TensorData::new(STD.to_vec(), [3, 1, 1]).convert::<FloatType>();
+        let mean = Tensor::<B, 3>::from_data(mean, device);
+        let std = Tensor::<B, 3>::from_data(std, device);
         let img = ((data - mean) / std).unsqueeze();
 
         Ok(SourceImage {
