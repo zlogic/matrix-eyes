@@ -8,7 +8,7 @@ use burn::{
         PaddingConfig2d, Relu,
     },
     prelude::Backend,
-    record::{FullPrecisionSettings, NamedMpkFileRecorder, Recorder as _, RecorderError},
+    record::{HalfPrecisionSettings, NamedMpkFileRecorder, Recorder as _, RecorderError},
     tensor::{cast::ToElement as _, Tensor},
 };
 use burn_import::pytorch::{LoadArgs, PyTorchFileRecorder};
@@ -167,11 +167,11 @@ impl DepthProModelLoader {
             .with_extension("mpk")
             .to_path_buf();
 
-        let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::default();
+        let recorder = NamedMpkFileRecorder::<HalfPrecisionSettings>::default();
         let record: M::Record = if converted_filename.exists() {
             recorder.load(converted_filename, device)?
         } else {
-            let record = PyTorchFileRecorder::<FullPrecisionSettings>::default()
+            let record = PyTorchFileRecorder::<HalfPrecisionSettings>::default()
                 .load(pytorch_load_args.clone(), device)?;
             if self.convert_checkpoints {
                 recorder.record(record, converted_filename.clone())?;
