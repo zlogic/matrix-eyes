@@ -85,11 +85,11 @@ where
         let data = img.into_raw();
 
         let data = TensorData::new(data, [HEIGHT, WIDTH, 3]);
-        let data = Tensor::<B, 3, Float>::from_data(data.convert::<FloatType>(), device)
+        let data = Tensor::<B, 3, Float>::from_data(data.convert::<B::FloatElem>(), device)
             .permute([2, 0, 1])
             / 255.0;
-        let mean = TensorData::new(MEAN.to_vec(), [3, 1, 1]).convert::<FloatType>();
-        let std = TensorData::new(STD.to_vec(), [3, 1, 1]).convert::<FloatType>();
+        let mean = TensorData::new(MEAN.to_vec(), [3, 1, 1]).convert::<B::FloatElem>();
+        let std = TensorData::new(STD.to_vec(), [3, 1, 1]).convert::<B::FloatElem>();
         let mean = Tensor::<B, 3>::from_data(mean, device);
         let std = Tensor::<B, 3>::from_data(std, device);
         let img = ((data - mean) / std).unsqueeze();

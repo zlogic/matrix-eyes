@@ -9,7 +9,7 @@ use burn::{
     },
     prelude::Backend,
     record::{HalfPrecisionSettings, NamedMpkFileRecorder, Recorder as _, RecorderError},
-    tensor::{cast::ToElement as _, Tensor},
+    tensor::{cast::ToElement as _, ElementConversion as _, Tensor},
 };
 use burn_import::pytorch::{LoadArgs, PyTorchFileRecorder};
 use decoder::{MultiresConvDecoder, MultiresConvDecoderConfig};
@@ -250,7 +250,11 @@ impl DepthProModelLoader {
                 .map_err(|err| ModelError::Internal("Failed to load fov model", err))?
                 .fov;
 
-            let fov_deg = fov.forward(img, features_0).into_scalar().to_f32();
+            let fov_deg = fov
+                .forward(img, features_0)
+                .into_scalar()
+                .elem::<B::FloatElem>()
+                .to_f32();
             (0.5 * (fov_deg * std::f32::consts::PI / 180.0)).tan() / 0.5
         };
 
