@@ -201,12 +201,12 @@ impl DepthProModelLoader {
             pl: pl.map(|pl| Arc::new(pl)),
             range: 0.0..1.0,
         };
-        let (pl, pl_fov) = if f_norm.is_some() {
-            pl.split_range(0.9)
+        let (pl, pl_fov) = if f_norm.is_none() {
+            pl.split_range(0.8)
         } else {
             pl.split_range(1.0)
         };
-        let (pl, next_pl) = pl.split_range(0.25);
+        let (pl, next_pl) = pl.split_range(0.8);
 
         let encodings = {
             let (pl, pl_encoder) = pl.split_range(0.05);
@@ -221,7 +221,7 @@ impl DepthProModelLoader {
             pl.report_status(1.0);
             encoder.forward_encodings(img.clone(), pl_encoder)
         };
-        let (pl, next_pl) = next_pl.split_range(0.8);
+        let (pl, next_pl) = next_pl.split_range(0.98);
 
         let (features, features_0) = {
             let (pl, pl_decoder) = pl.split_range(0.05);
