@@ -221,7 +221,7 @@ impl DepthProModelLoader {
             pl.report_status(1.0);
             encoder.forward_encodings(img.clone(), pl_encoder)
         };
-        let (pl, next_pl) = next_pl.split_range(0.5);
+        let (pl, next_pl) = next_pl.split_range(0.8);
 
         let (features, features_0) = {
             let (pl, pl_decoder) = pl.split_range(0.05);
@@ -256,15 +256,15 @@ impl DepthProModelLoader {
             pl.update_message("forwarding head".into());
 
             let features = head[0].forward(features);
-            pl.report_status(0.2);
+            pl.report_status(0.3);
             let features = head[1].forward(features);
-            pl.report_status(0.4);
-            let features = head[2].forward(features);
             pl.report_status(0.6);
-            let features = Relu::new().forward(features);
+            let features = head[2].forward(features);
             pl.report_status(0.8);
-            let features = head[3].forward(features);
+            let features = Relu::new().forward(features);
             pl.report_status(0.9);
+            let features = head[3].forward(features);
+            pl.report_status(0.95);
             Relu::new().forward(features)
         };
 
