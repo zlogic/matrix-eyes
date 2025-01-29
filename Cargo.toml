@@ -12,6 +12,7 @@ burn = { version = "0.16", default-features = false, features = ["std"] }
 burn-import = { version = "0.16", default-features = false, features = ["pytorch"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 kamadak-exif = { version = "0.6", default-features = false }
+indicatif = { version = "0.17", default-features = false }
 rand = { version = "*", features = ["std", "std_rng", "small_rng"] }
 candle-core = { version = "*", optional = true, features = ["cudnn"] }
 

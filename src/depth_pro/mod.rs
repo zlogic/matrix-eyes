@@ -1,4 +1,4 @@
-use std::{error, fmt, path::Path};
+use std::{error, fmt, ops::Range, path::Path, sync::Arc};
 
 use burn::{
     config::Config,
@@ -183,40 +183,61 @@ impl DepthProModelLoader {
         Ok(model.load_record(record))
     }
 
-    pub fn extract_depth<B>(
+    pub fn extract_depth<B, PL>(
         &self,
         img: Tensor<B, 4>,
         f_norm: Option<f32>,
         device: &B::Device,
+        pl: Option<PL>,
     ) -> Result<Tensor<B, 2>, ModelError>
     where
         B: Backend,
+        PL: ProgressListener,
     {
         const ENCODER_FEATURE_DIMS: [usize; 4] = [256, 512, 1024, 1024];
         const DECODER_FEATURES: usize = 256;
 
+        let pl = SplitProgressListener {
+            pl: pl.map(|pl| Arc::new(pl)),
+            range: 0.0..1.0,
+        };
+        let (pl, pl_fov) = if f_norm.is_some() {
+            pl.split_range(0.9)
+        } else {
+            pl.split_range(1.0)
+        };
+        let (pl, next_pl) = pl.split_range(0.25);
+
         let encodings = {
+            let (pl, pl_encoder) = pl.split_range(0.05);
             let encoder =
                 DepthProEncoderConfig::init(&ENCODER_FEATURE_DIMS, DECODER_FEATURES, device);
             let encoder = PartEncoder { encoder };
+            pl.update_message("loading encoder model".into());
             let encoder = self
                 .load_record(encoder, "encoder", device)
                 .map_err(|err| ModelError::Internal("Failed to load depth model", err))?
                 .encoder;
-            encoder.forward_encodings(img.clone())
+            pl.report_status(1.0);
+            encoder.forward_encodings(img.clone(), pl_encoder)
         };
+        let (pl, next_pl) = next_pl.split_range(0.5);
 
         let (features, features_0) = {
+            let (pl, pl_decoder) = pl.split_range(0.05);
             let mut dims_encoder = vec![DECODER_FEATURES];
             dims_encoder.extend_from_slice(&ENCODER_FEATURE_DIMS);
             let decoder = MultiresConvDecoderConfig::init(&dims_encoder, DECODER_FEATURES, device);
             let decoder = PartDecoder { decoder };
+            pl.update_message("loading decoder model".into());
             let decoder = self
                 .load_record(decoder, "decoder", device)
                 .map_err(|err| ModelError::Internal("Failed to load decoder model", err))?
                 .decoder;
-            decoder.forward(encodings)
+            pl.report_status(1.0);
+            decoder.forward(encodings, pl_decoder)
         };
+        let pl = next_pl;
 
         let canonical_inverse_depth = {
             let head = HeadConfig {
@@ -225,16 +246,25 @@ impl DepthProModelLoader {
             }
             .init(device);
             let head = PartHead { head };
+            pl.update_message("loading head".into());
             let head = self
                 .load_record(head, "head", device)
                 .map_err(|err| ModelError::Internal("Failed to load head model", err))?
                 .head;
+            pl.report_status(0.05);
+
+            pl.update_message("forwarding head".into());
 
             let features = head[0].forward(features);
+            pl.report_status(0.2);
             let features = head[1].forward(features);
+            pl.report_status(0.4);
             let features = head[2].forward(features);
+            pl.report_status(0.6);
             let features = Relu::new().forward(features);
+            pl.report_status(0.8);
             let features = head[3].forward(features);
+            pl.report_status(0.9);
             Relu::new().forward(features)
         };
 
@@ -245,13 +275,16 @@ impl DepthProModelLoader {
         } else {
             let fov = FOVNetworkConfig::init(DECODER_FEATURES, device);
             let fov = PartFOV { fov };
+            let (pl, pl_fov) = pl_fov.split_range(0.05);
+            pl.update_message("loading fov".into());
             let fov = self
                 .load_record(fov, "fov", device)
                 .map_err(|err| ModelError::Internal("Failed to load fov model", err))?
                 .fov;
+            pl.report_status(1.0);
 
             let fov_deg = fov
-                .forward(img, features_0)
+                .forward(img, features_0, pl_fov)
                 .into_scalar()
                 .elem::<B::FloatElem>()
                 .to_f32();
@@ -260,6 +293,60 @@ impl DepthProModelLoader {
 
         let inverse_depth = canonical_inverse_depth.div_scalar(f_norm);
         Ok(inverse_depth.clamp(1e-4, 1e4))
+    }
+}
+
+pub trait ProgressListener
+where
+    Self: Send + Sync + Sized,
+{
+    fn report_status(&self, pos: f32);
+    fn update_message(&self, status_message: String);
+}
+
+struct SplitProgressListener<PL: ProgressListener> {
+    pl: Option<Arc<PL>>,
+    range: Range<f32>,
+}
+
+impl<PL> SplitProgressListener<PL>
+where
+    PL: ProgressListener,
+{
+    fn split_range(
+        self,
+        split_position: f32,
+    ) -> (SplitProgressListener<PL>, SplitProgressListener<PL>) {
+        let mid = self.range.start + (self.range.end - self.range.start) * split_position;
+        let range_left = self.range.start..mid;
+        let range_right = mid..self.range.end;
+        (
+            SplitProgressListener {
+                pl: self.pl.clone(),
+                range: range_left,
+            },
+            SplitProgressListener {
+                pl: self.pl.clone(),
+                range: range_right,
+            },
+        )
+    }
+}
+
+impl<PL> ProgressListener for SplitProgressListener<PL>
+where
+    PL: ProgressListener,
+{
+    fn report_status(&self, pos: f32) {
+        if let Some(pl) = self.pl.as_deref() {
+            pl.report_status(self.range.start + pos * (self.range.end - self.range.start));
+        }
+    }
+
+    fn update_message(&self, status_message: String) {
+        if let Some(pl) = self.pl.as_deref() {
+            pl.update_message(status_message);
+        }
     }
 }
 

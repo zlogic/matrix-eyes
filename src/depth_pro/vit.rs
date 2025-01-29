@@ -1,3 +1,5 @@
+use super::{ProgressListener, SplitProgressListener};
+
 use burn::{
     config::Config,
     module::{Module, Param},
@@ -292,14 +294,22 @@ impl<B: Backend> DinoVisionTransformer<B> {
         xs + self.interpolate_pos_encoding(xs_shape, w, h)
     }
 
-    fn get_intermediate_layers_not_chunked(
+    fn get_intermediate_layers_not_chunked<PL>(
         &self,
         xs: Tensor<B, 4>,
         blocks_to_take: &[usize],
-    ) -> (Tensor<B, 3>, Vec<Tensor<B, 3>>) {
+        pl: SplitProgressListener<PL>,
+    ) -> (Tensor<B, 3>, Vec<Tensor<B, 3>>)
+    where
+        PL: ProgressListener,
+    {
+        let (pl, pl_next) = pl.split_range(0.1);
+        pl.report_status(0.1);
         let mut xs = self.prepare_tokens_with_mask(xs);
+        let pl = pl_next;
         let mut output = Vec::new();
         for (i, blk) in self.blocks.iter().enumerate() {
+            pl.report_status(i as f32 / self.blocks.len() as f32);
             xs = blk.forward(xs);
             if blocks_to_take.contains(&i) {
                 output.push(xs.clone());
@@ -315,16 +325,23 @@ impl<B: Backend> DinoVisionTransformer<B> {
         (xs, output)
     }
 
-    pub fn forward_features(
+    pub fn forward_features<PL>(
         &self,
         xs: Tensor<B, 4>,
         intermediate_blocks: &[usize],
-    ) -> (Tensor<B, 3>, Vec<Tensor<B, 3>>) {
+        pl: SplitProgressListener<PL>,
+    ) -> (Tensor<B, 3>, Vec<Tensor<B, 3>>)
+    where
+        PL: ProgressListener,
+    {
+        let (layers_pl, pl) = pl.split_range(0.95);
         // Depth Pro uses forward_features instead of a normal forward call.
         // Based on vision_transformer.py.
         let (final_output, outputs) =
-            self.get_intermediate_layers_not_chunked(xs, intermediate_blocks);
+            self.get_intermediate_layers_not_chunked(xs, intermediate_blocks, layers_pl);
+        pl.report_status(0.0);
         let final_output = self.norm.forward(final_output);
+        pl.report_status(1.0);
         (final_output, outputs)
     }
 }

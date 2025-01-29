@@ -9,6 +9,8 @@ use burn::{
     tensor::Tensor,
 };
 
+use super::{ProgressListener, SplitProgressListener};
+
 #[derive(Module, Debug)]
 struct ResidualConvUnit<B: Backend> {
     residual: Vec<Conv2d<B>>,
@@ -146,12 +148,23 @@ impl<B> MultiresConvDecoder<B>
 where
     B: Backend,
 {
-    pub fn forward(&self, mut encodings: Vec<Tensor<B, 4>>) -> (Tensor<B, 4>, Tensor<B, 4>) {
+    pub fn forward<PL>(
+        &self,
+        mut encodings: Vec<Tensor<B, 4>>,
+        pl: SplitProgressListener<PL>,
+    ) -> (Tensor<B, 4>, Tensor<B, 4>)
+    where
+        PL: ProgressListener,
+    {
         if encodings.len() != self.fusions.len() {
             let received = encodings.len();
             let expected = self.fusions.len();
             panic!("got encoder output levels {received}, expected levels {expected}")
         }
+
+        pl.update_message("decoding initial block".into());
+        let mut blocks_processed = 0usize;
+        let percent_per_block = 1.0f32 / self.fusions.len() as f32;
 
         let last_encoding = encodings.pop().expect("empty encodings list");
         let mut features = self
@@ -159,13 +172,17 @@ where
             .last()
             .expect("empty convs block list")
             .forward(last_encoding);
+        pl.report_status(blocks_processed as f32 * percent_per_block + 0.1 * percent_per_block);
         let lowres_features = features.clone();
         features = self
             .fusions
             .last()
             .expect("empty fusions block list")
             .forward(features, None);
+        blocks_processed += 1;
+        pl.report_status(blocks_processed as f32 * percent_per_block);
 
+        pl.update_message("decoding blocks".into());
         for (i, encoding) in encodings.into_iter().enumerate().rev() {
             let conv = if self.convs.len() == self.fusions.len() {
                 Some(&self.convs[i])
@@ -179,7 +196,10 @@ where
             } else {
                 encoding
             };
+            pl.report_status(blocks_processed as f32 * percent_per_block + 0.1 * percent_per_block);
             features = self.fusions[i].forward(features, Some(features_i));
+            blocks_processed += 1;
+            pl.report_status(blocks_processed as f32 * percent_per_block);
         }
 
         (features, lowres_features)

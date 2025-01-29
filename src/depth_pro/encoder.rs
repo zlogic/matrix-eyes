@@ -1,6 +1,6 @@
 use super::{
     vit::{self, DinoVisionTransformer},
-    ConvBlock,
+    ConvBlock, ProgressListener, SplitProgressListener,
 };
 use burn::{
     config::Config,
@@ -219,15 +219,30 @@ where
         result
     }
 
-    pub fn forward_encodings(&self, x: Tensor<B, 4>) -> Vec<Tensor<B, 4>> {
+    pub fn forward_encodings<PL>(
+        &self,
+        x: Tensor<B, 4>,
+        pl: SplitProgressListener<PL>,
+    ) -> Vec<Tensor<B, 4>>
+    where
+        PL: ProgressListener,
+    {
         const OUT_SIZE: usize = IMG_SIZE / PATCH_SIZE;
         const HIGHRES_LAYER_IDS: [usize; 2] = [5, 11];
         let batch_size = x.dims()[0];
 
-        let (x0, x1, x2) = Self::create_pyramid(x.clone());
+        let (pl, pl_image) = pl.split_range(0.5);
 
+        let (pl, pl_next) = pl.split_range(0.02);
+        pl.update_message("creating image pyramid".into());
+        let (x0, x1, x2) = Self::create_pyramid(x.clone());
+        pl.report_status(0.25);
+
+        pl.update_message("preparing image patches".into());
         let x0_patches = Self::split(x0, 4);
+        pl.report_status(0.45);
         let x1_patches = Self::split(x1, 2);
+        pl.report_status(0.65);
         let x2_patches = x2;
         let (x0_patches_len, x1_patches_len, x2_patches_len) = (
             x0_patches.dims()[0],
@@ -238,14 +253,20 @@ where
         let x_pyramid_patches =
             Tensor::<B, 4>::cat(vec![x0_patches, x1_patches, x2_patches.clone()], 0);
 
-        let (x_pyramid_encodings, highres_encodings) = self
-            .patch_encoder
-            .forward_features(x_pyramid_patches, &HIGHRES_LAYER_IDS);
+        pl.update_message("encoding patches".into());
+        let (pl_features, pl) = pl_next.split_range(0.95);
+        let (x_pyramid_encodings, highres_encodings) =
+            self.patch_encoder
+                .forward_features(x_pyramid_patches, &HIGHRES_LAYER_IDS, pl_features);
+
+        pl.update_message("reshaping patch encodings".into());
+        pl.report_status(0.0);
         let [highres_encoding0, highres_encoding1] = highres_encodings
             .try_into()
             .expect("unexpected number of highres encodings");
         let x_pyramid_encodings = Self::reshape_feature(x_pyramid_encodings, OUT_SIZE, OUT_SIZE, 1);
 
+        pl.report_status(0.2);
         let x_latent0_encodings = Self::reshape_feature(highres_encoding0, OUT_SIZE, OUT_SIZE, 1);
         let x_latent0_features = Self::merge(
             x_latent0_encodings.narrow(0, 0, batch_size * 5 * 5),
@@ -253,36 +274,60 @@ where
             3,
         );
 
+        pl.report_status(0.4);
         let x_latent1_encodings = Self::reshape_feature(highres_encoding1, OUT_SIZE, OUT_SIZE, 1);
+        pl.report_status(0.6);
         let x_latent1_features = Self::merge(
             x_latent1_encodings.narrow(0, 0, batch_size * 5 * 5),
             batch_size,
             3,
         );
 
+        let (pl, pl_next) = pl_image.split_range(0.02);
+        pl.update_message("preparing image encodings".into());
+        pl.report_status(0.0);
         let [x0_encodings, x1_encodings, x2_encodings] = x_pyramid_encodings
             .split_with_sizes(vec![x0_patches_len, x1_patches_len, x2_patches_len], 0)
             .try_into()
             .expect("unexpected number of pyramid encodings");
+        pl.report_status(0.5);
 
         let x0_features = Self::merge(x0_encodings, batch_size, 3);
+        pl.report_status(0.75);
         let x1_features = Self::merge(x1_encodings, batch_size, 6);
         let x2_features = x2_encodings;
 
-        let (x_global_features, _) = self.image_encoder.forward_features(x2_patches, &[]);
-        let x_global_features = Self::reshape_feature(x_global_features, OUT_SIZE, OUT_SIZE, 1);
+        pl.update_message("encoding image".into());
+        let (pl_image, pl) = pl_next.split_range(0.1);
+        let (x_global_features, _) = self
+            .image_encoder
+            .forward_features(x2_patches, &[], pl_image);
 
+        pl.update_message("reshaping image encodings".into());
+        let x_global_features = Self::reshape_feature(x_global_features, OUT_SIZE, OUT_SIZE, 1);
+        pl.report_status(0.1);
+
+        pl.update_message("encoding features".into());
         let x_latent0_features = Self::forward_seq(&self.upsample_latent0, x_latent0_features);
+        pl.report_status(0.3);
         let x_latent1_features = Self::forward_seq(&self.upsample_latent1, x_latent1_features);
+        pl.report_status(0.5);
 
         let x0_features = Self::forward_seq(&self.upsample0, x0_features);
+        pl.report_status(0.6);
         let x1_features = Self::forward_seq(&self.upsample1, x1_features);
+        pl.report_status(0.7);
         let x2_features = Self::forward_seq(&self.upsample2, x2_features);
+        pl.report_status(0.8);
 
+        pl.update_message("upsampling lowres".into());
         let x_global_features = self.upsample_lowres.forward(x_global_features);
+        pl.report_status(0.9);
+        pl.update_message("fusing lowres".into());
         let x_global_features = self
             .fuse_lowres
             .forward(Tensor::cat(vec![x2_features, x_global_features], 1));
+        pl.report_status(1.0);
 
         vec![
             x_latent0_features,

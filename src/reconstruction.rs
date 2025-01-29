@@ -1,10 +1,14 @@
-use std::{error, fmt};
+use std::{
+    error,
+    fmt::{self, Write},
+};
 
 use burn::{
     prelude::Backend,
     tensor::{Float, Tensor, TensorData},
 };
 use image::{imageops, DynamicImage, ImageDecoder, ImageReader};
+use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
 use crate::{depth_pro, output};
 
@@ -141,7 +145,10 @@ where
         .focal_length_px()
         .map(|f_px| (f_px / img.original_size.0 as f64) as f32);
 
-    let inverse_depth = match model_loader.extract_depth(img.img.clone(), f_norm, device) {
+    let pb = ProgressReporter::new();
+
+    let inverse_depth = match model_loader.extract_depth(img.img.clone(), f_norm, device, Some(pb))
+    {
         Ok(inverse_depth) => inverse_depth,
         Err(err) => {
             eprintln!("Failed to process image: {}", err);
@@ -164,6 +171,39 @@ where
             eprintln!("Failed to output result: {}", err);
             Err(err)
         }
+    }
+}
+
+struct ProgressReporter {
+    pb: ProgressBar,
+}
+
+impl ProgressReporter {
+    fn new() -> ProgressReporter {
+        let pb_style = ProgressStyle::default_bar()
+            .template("{bar:40} {percent_decimal}% ({elapsed}){msg}")
+            .unwrap()
+            .with_key("percent_decimal", |s: &ProgressState, w: &mut dyn Write| {
+                write!(w, "{:.2}", s.fraction() * 100.0).unwrap()
+            });
+        let pb = ProgressBar::new(10000).with_style(pb_style);
+        ProgressReporter { pb }
+    }
+}
+
+impl depth_pro::ProgressListener for ProgressReporter {
+    fn report_status(&self, pos: f32) {
+        self.pb.set_position((pos * 10000.0) as u64);
+    }
+
+    fn update_message(&self, status_message: String) {
+        self.pb.set_message(format!(": {status_message}"));
+    }
+}
+
+impl Drop for ProgressReporter {
+    fn drop(&mut self) {
+        self.pb.finish_and_clear();
     }
 }
 

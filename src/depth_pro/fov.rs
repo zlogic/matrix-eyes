@@ -13,7 +13,10 @@ use burn::{
     },
 };
 
-use super::vit::{self, DinoVisionTransformer};
+use super::{
+    vit::{self, DinoVisionTransformer},
+    ProgressListener, SplitProgressListener,
+};
 
 const EMBED_DIM: usize = vit::EMBED_DIM;
 
@@ -34,28 +37,55 @@ impl<B> FOVNetwork<B>
 where
     B: Backend,
 {
-    pub fn forward(&self, x: Tensor<B, 4>, lowres_feature: Tensor<B, 4>) -> Tensor<B, 1> {
+    pub fn forward<PL>(
+        &self,
+        x: Tensor<B, 4>,
+        lowres_feature: Tensor<B, 4>,
+        pl: SplitProgressListener<PL>,
+    ) -> Tensor<B, 1>
+    where
+        PL: ProgressListener,
+    {
         const INTERPOLATE_MODE: InterpolateMode = if cfg!(feature = "candle-cuda") {
             InterpolateMode::Nearest
         } else {
             InterpolateMode::Bilinear
         };
+        let (pl, pl_next) = pl.split_range(0.01);
         let [_b, _c, h, w] = x.dims();
+        pl.update_message("interpolating image".into());
         let x = interpolate(x, [w / 4, h / 4], InterpolateOptions::new(INTERPOLATE_MODE));
-        let x = self.encoder.fov_encoder.forward_features(x, &[]).0;
+        pl.report_status(1.0);
+        pl.update_message("encoding fov".into());
+        let (pl_encoder, pl) = pl_next.split_range(0.8);
+        let x = self
+            .encoder
+            .fov_encoder
+            .forward_features(x, &[], pl_encoder)
+            .0;
+        pl.update_message("fov linear".into());
         let x = self.encoder.linear.forward(x);
+        pl.report_status(0.4);
 
         let [_, x_dim1, _] = x.dims();
         let x = x.narrow(1, 1, x_dim1 - 1).permute([0, 2, 1]);
 
+        pl.update_message("fov lowres".into());
         let lowres_feature = self.downsample[0].forward(lowres_feature);
+        pl.report_status(0.65);
         let lowres_feature = Relu::new().forward(lowres_feature);
+        pl.report_status(0.70);
         let x = x.reshape(lowres_feature.dims()) + lowres_feature;
+        pl.report_status(0.75);
 
         let x = self.head[0].forward(x);
+        pl.report_status(0.80);
         let x = Relu::new().forward(x);
+        pl.report_status(0.85);
         let x = self.head[1].forward(x);
+        pl.report_status(0.90);
         let x = Relu::new().forward(x);
+        pl.report_status(0.95);
         let x = self.head[2].forward(x);
 
         x.squeeze_dims(&[0, 1, 2])
