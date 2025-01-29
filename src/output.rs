@@ -158,7 +158,7 @@ impl DepthMap {
         let depth_multiplier = output_width as f32 * amplitude;
         let pattern_width = (depth_multiplier * 2.0 + amplitude).round() as usize;
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for (y, row) in out_image.enumerate_rows_mut() {
             let noise_row = (0..output_width)
                 .map(|_x| {
