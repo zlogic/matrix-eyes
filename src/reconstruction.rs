@@ -144,7 +144,7 @@ where
     let inverse_depth = match model_loader.extract_depth(img.img.clone(), f_norm, device) {
         Ok(inverse_depth) => inverse_depth,
         Err(err) => {
-            eprintln!("Failed to extract depth from image: {}", err);
+            eprintln!("Failed to process image: {}", err);
             return Err(err.into());
         }
     };
@@ -157,7 +157,14 @@ where
             return Err(err);
         }
     };
-    Ok(depth_map.output_image(destination_path, source_path, image_format, vertex_mode)?)
+    match depth_map.output_image(destination_path, source_path, image_format, vertex_mode) {
+        Ok(()) => Ok(()),
+        Err(err) => {
+            let err = err.into();
+            eprintln!("Failed to output result: {}", err);
+            Err(err)
+        }
+    }
 }
 
 #[derive(Debug)]
