@@ -27,6 +27,8 @@ struct ConvBlock<B: Backend> {
     conv_tr: Option<ConvTranspose2d<B>>,
 }
 
+pub const IMG_SIZE: usize = vit::IMG_SIZE * 4;
+
 impl<B> ConvBlock<B>
 where
     B: Backend,

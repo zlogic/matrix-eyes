@@ -61,9 +61,7 @@ where
         focal_length_35mm: Option<f32>,
         device: &B::Device,
     ) -> Result<SourceImage<B>, ReconstructionError> {
-        // TODO: use model size
-        const WIDTH: usize = 1536;
-        const HEIGHT: usize = 1536;
+        const IMG_SIZE: usize = depth_pro::IMG_SIZE;
         const MEAN: [f32; 3] = [0.5, 0.5, 0.5];
         const STD: [f32; 3] = [0.5, 0.5, 0.5];
         let mut decoder = ImageReader::open(path)?.into_decoder()?;
@@ -79,11 +77,15 @@ where
         img.apply_orientation(orientation);
         let original_size = (img.width(), img.height());
         let img = img
-            .resize_exact(WIDTH as u32, HEIGHT as u32, imageops::FilterType::Lanczos3)
+            .resize_exact(
+                IMG_SIZE as u32,
+                IMG_SIZE as u32,
+                imageops::FilterType::Lanczos3,
+            )
             .into_rgb8();
         let data = img.into_raw();
 
-        let data = TensorData::new(data, [HEIGHT, WIDTH, 3]);
+        let data = TensorData::new(data, [IMG_SIZE, IMG_SIZE, 3]);
         let data = Tensor::<B, 3, Float>::from_data(data.convert::<B::FloatElem>(), device)
             .permute([2, 0, 1])
             / 255.0;
