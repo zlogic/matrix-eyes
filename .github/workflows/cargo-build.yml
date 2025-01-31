@@ -2,9 +2,9 @@ name: Cargo build
 
 on:
   push:
-    branches: [ "main", "rust" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main", "rust" ]
+    branches: [ "main" ]
 
 jobs:
   validate:
@@ -186,7 +186,7 @@ jobs:
         path: matrix-eyes-*.zip
 
     - name: Package CUDA
-      if: matrix.acceleration == 'candle-cuda'
+      if: false # matrix.acceleration == 'candle-cuda'
       run: |
         New-Item -Path . -Name "cuda" -ItemType "directory"
         cp "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\bin\cublas64_12.dll" cuda
