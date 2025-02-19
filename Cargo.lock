@@ -209,7 +209,7 @@ checksum = "1628fb46dfa0b37568d12e5edd512553eccf6a22a78e8bde00bb4aed84d5bdbf"
 [[package]]
 name = "burn"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "burn-autodiff",
  "burn-candle",
@@ -224,7 +224,7 @@ dependencies = [
 [[package]]
 name = "burn-autodiff"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "burn-common",
  "burn-tensor",
@@ -236,7 +236,7 @@ dependencies = [
 [[package]]
 name = "burn-candle"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "burn-tensor",
  "candle-core",
@@ -247,7 +247,7 @@ dependencies = [
 [[package]]
 name = "burn-common"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "cubecl-common",
  "getrandom 0.3.1",
@@ -259,7 +259,7 @@ dependencies = [
 [[package]]
 name = "burn-core"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "ahash",
  "bincode",
@@ -287,7 +287,7 @@ dependencies = [
 [[package]]
 name = "burn-cubecl"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "burn-common",
  "burn-cubecl-fusion",
@@ -311,7 +311,7 @@ dependencies = [
 [[package]]
 name = "burn-cubecl-fusion"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "burn-common",
  "burn-fusion",
@@ -326,7 +326,7 @@ dependencies = [
 [[package]]
 name = "burn-cuda"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "burn-cubecl",
  "burn-fusion",
@@ -341,7 +341,7 @@ dependencies = [
 [[package]]
 name = "burn-derive"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "derive-new 0.7.0",
  "proc-macro2",
@@ -352,7 +352,7 @@ dependencies = [
 [[package]]
 name = "burn-fusion"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "burn-common",
  "burn-ir",
@@ -368,7 +368,7 @@ dependencies = [
 [[package]]
 name = "burn-hip"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "burn-cubecl",
  "burn-tensor",
@@ -382,7 +382,7 @@ dependencies = [
 [[package]]
 name = "burn-import"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "burn",
  "candle-core",
@@ -406,7 +406,7 @@ dependencies = [
 [[package]]
 name = "burn-ir"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "burn-tensor",
  "hashbrown 0.15.2",
@@ -417,7 +417,7 @@ dependencies = [
 [[package]]
 name = "burn-ndarray"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "atomic_float",
  "blas-src",
@@ -438,7 +438,7 @@ dependencies = [
 [[package]]
 name = "burn-router"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "burn-common",
  "burn-ir",
@@ -451,7 +451,7 @@ dependencies = [
 [[package]]
 name = "burn-tensor"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "burn-common",
  "bytemuck",
@@ -470,7 +470,7 @@ dependencies = [
 [[package]]
 name = "burn-wgpu"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "burn-cubecl",
  "burn-fusion",
@@ -2381,7 +2381,7 @@ checksum = "945462a4b81e43c4e3ba96bd7b49d834c6f61198356aa858733bc4acf3cbe62e"
 [[package]]
 name = "onnx-ir"
 version = "0.17.0"
-source = "git+https://github.com/tracel-ai/burn?rev=f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e#f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e"
+source = "git+https://github.com/zlogic/burn?rev=0ebe115b449bb543c14c65289c32cc6ed871eb43#0ebe115b449bb543c14c65289c32cc6ed871eb43"
 dependencies = [
  "bytemuck",
  "half",

@@ -8,8 +8,8 @@ license = "Apache-2.0"
 rust-version = "1.85"
 
 [dependencies]
-burn = { version = "0.17", git = "https://github.com/tracel-ai/burn", rev = "f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e", default-features = false, features = ["std"] }
-burn-import = { version = "0.17", git = "https://github.com/tracel-ai/burn", rev = "f3dfd05c6a25e2afbc2dd5d48cc781af17fe284e", default-features = false, features = ["pytorch"] }
+burn = { version = "0.17", git = "https://github.com/zlogic/burn", rev = "0ebe115b449bb543c14c65289c32cc6ed871eb43", default-features = false, features = ["std"] }
+burn-import = { version = "0.17", git = "https://github.com/zlogic/burn", rev = "0ebe115b449bb543c14c65289c32cc6ed871eb43", default-features = false, features = ["pytorch"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 kamadak-exif = { version = "0.6", default-features = false }
 indicatif = { version = "0.17", default-features = false }
@@ -22,8 +22,8 @@ ndarray = ["burn/ndarray"]
 ndarray-accelerate = ["burn/ndarray", "burn/accelerate"]
 candle-cuda = ["burn/candle-cuda", "dep:candle-core"]
 candle-metal = ["burn/candle", "burn/metal"]
-# TODO: add burn-autotune feature when regressions from https://github.com/tracel-ai/burn/pull/2710 are fixed.
-wgpu = ["burn/wgpu", "burn/fusion"]
+# TODO: restore burn-autotune feature when regressions from https://github.com/tracel-ai/burn/pull/2710 are fixed.
+wgpu = ["burn/wgpu", "burn/fusion", "burn/autotune"]
 wgpu-spirv = ["burn/vulkan", "burn/fusion", "burn/autotune"]
 cuda = ["burn/cuda", "burn/fusion", "burn/autotune"]
 
