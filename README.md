@@ -91,8 +91,6 @@ This can help with making noise pixels large enough to be visible.
 * If the filename ends with `.png`, this will save a PNG image (depth map or stereogram).
 * If the filename ends with `.jpg`, this will save a JPEG image (depth map or stereogram).
 
-**⚠️ Warning** When using the `wgpu` version, set the `CUBECL_WGPU_MAX_TASKS=1` environment variable to reduce memory usage. Without this option, memory usage on an Apple Silicon GPU can exceed 20+ GB. Other values (between 4 and 16) also keep memory usage within a reasonable range.
-
 ### GPU details
 
 Matrix Eyes was tested to support CPU-only and GPU-accelerated processing on:
