@@ -18,10 +18,10 @@ pub type EnabledBackend = burn::backend::NdArray;
 pub type EnabledBackend = burn::backend::Wgpu;
 #[cfg(feature = "wgpu-spirv")]
 pub type EnabledBackend = burn::backend::Wgpu;
-#[cfg(feature = "candle-cuda")]
+#[cfg(any(feature = "candle-cuda", feature = "candle-metal"))]
 pub type EnabledBackend = burn::backend::Candle;
-#[cfg(feature = "cuda-jit")]
-pub type EnabledBackend = burn::backend::CudaJit;
+#[cfg(feature = "cuda")]
+pub type EnabledBackend = burn::backend::Cuda;
 
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
@@ -35,7 +35,7 @@ pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
         tasks_max: 1,
         ..Default::default()
     };
-    burn::backend::wgpu::init_setup::<burn::backend::wgpu::AutoGraphicsApi>(
+    burn::backend::wgpu::init_setup::<burn::backend::wgpu::graphics::AutoGraphicsApi>(
         &device,
         runtime_options,
     );
@@ -47,9 +47,14 @@ pub fn init_device() -> burn::backend::candle::CandleDevice {
     burn::backend::candle::CandleDevice::cuda(0)
 }
 
-#[cfg(feature = "cuda-jit")]
-pub fn init_device() -> burn::backend::cuda_jit::CudaDevice {
-    burn::backend::cuda_jit::CudaDevice::default()
+#[cfg(feature = "candle-metal")]
+pub fn init_device() -> burn::backend::candle::CandleDevice {
+    burn::backend::candle::CandleDevice::metal(0)
+}
+
+#[cfg(feature = "cuda")]
+pub fn init_device() -> burn::backend::cuda::CudaDevice {
+    burn::backend::cuda::CudaDevice::default()
 }
 
 struct SourceImage<B>

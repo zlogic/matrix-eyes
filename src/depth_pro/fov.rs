@@ -46,11 +46,12 @@ where
     where
         PL: ProgressListener,
     {
-        const INTERPOLATE_MODE: InterpolateMode = if cfg!(feature = "candle-cuda") {
-            InterpolateMode::Nearest
-        } else {
-            InterpolateMode::Bilinear
-        };
+        const INTERPOLATE_MODE: InterpolateMode =
+            if cfg!(any(feature = "candle-cuda", feature = "candle-metal")) {
+                InterpolateMode::Nearest
+            } else {
+                InterpolateMode::Bilinear
+            };
         let (pl, pl_next) = pl.split_range(0.01);
         let [_b, _c, h, w] = x.dims();
         pl.update_message("interpolating image".into());

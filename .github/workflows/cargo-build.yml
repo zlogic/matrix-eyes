@@ -2,9 +2,9 @@ name: Cargo build
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "use-latest-burn" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "use-latest-burn" ]
 
 jobs:
   validate:
@@ -116,7 +116,7 @@ jobs:
         - arch: x86_64
           acceleration: wgpu-spirv
         - arch: x86_64
-          acceleration: cuda-jit
+          acceleration: cuda
         - arch: x86_64
           acceleration: ndarray
         - arch: aarch64
@@ -218,9 +218,13 @@ jobs:
         - arch: x86_64
           acceleration: wgpu
         - arch: x86_64
+          acceleration: candle-metal
+        - arch: x86_64
           acceleration: ndarray-accelerate
         - arch: aarch64
           acceleration: wgpu
+        - arch: aarch64
+          acceleration: candle-metal
         - arch: aarch64
           acceleration: ndarray-accelerate
 
