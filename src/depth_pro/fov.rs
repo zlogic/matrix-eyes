@@ -2,20 +2,20 @@ use burn::{
     config::Config,
     module::Module,
     nn::{
-        conv::{Conv2d, Conv2dConfig},
         Linear, LinearConfig, PaddingConfig2d, Relu,
+        conv::{Conv2d, Conv2dConfig},
     },
     prelude::Backend,
     tensor::{
+        Tensor,
         module::interpolate,
         ops::{InterpolateMode, InterpolateOptions},
-        Tensor,
     },
 };
 
 use super::{
-    vit::{self, DinoVisionTransformer},
     ProgressListener, SplitProgressListener,
+    vit::{self, DinoVisionTransformer},
 };
 
 const EMBED_DIM: usize = vit::EMBED_DIM;

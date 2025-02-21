@@ -2,8 +2,8 @@ use burn::{
     config::Config,
     module::Module,
     nn::{
-        conv::{Conv2d, Conv2dConfig, ConvTranspose2d, ConvTranspose2dConfig},
         PaddingConfig2d, Relu,
+        conv::{Conv2d, Conv2dConfig, ConvTranspose2d, ConvTranspose2dConfig},
     },
     prelude::Backend,
     tensor::Tensor,
@@ -121,9 +121,11 @@ impl MultiresConvDecoderConfig {
         B: Backend,
     {
         let mut convs = if dims_encoder[0] != dim_decoder {
-            vec![Conv2dConfig::new([dims_encoder[0], dim_decoder], [1, 1])
-                .with_bias(false)
-                .init(device)]
+            vec![
+                Conv2dConfig::new([dims_encoder[0], dim_decoder], [1, 1])
+                    .with_bias(false)
+                    .init(device),
+            ]
         } else {
             vec![]
         };

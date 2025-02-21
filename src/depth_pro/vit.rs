@@ -4,13 +4,13 @@ use burn::{
     config::Config,
     module::{Module, Param},
     nn::{
-        conv::{Conv2d, Conv2dConfig},
         Initializer, LayerNorm, LayerNormConfig, Linear, LinearConfig,
+        conv::{Conv2d, Conv2dConfig},
     },
     prelude::Backend,
     tensor::{
-        activation::{gelu, softmax},
         Tensor,
+        activation::{gelu, softmax},
     },
 };
 

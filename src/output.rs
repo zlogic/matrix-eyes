@@ -11,8 +11,8 @@ use burn::{
     tensor::{DataError, Tensor},
 };
 use image::{
-    imageops::{self, FilterType},
     DynamicImage, ImageReader, Rgb, RgbImage,
+    imageops::{self, FilterType},
 };
 use rand::Rng as _;
 

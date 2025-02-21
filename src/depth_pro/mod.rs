@@ -4,12 +4,12 @@ use burn::{
     config::Config,
     module::Module,
     nn::{
-        conv::{Conv2d, Conv2dConfig, ConvTranspose2d, ConvTranspose2dConfig},
         PaddingConfig2d, Relu,
+        conv::{Conv2d, Conv2dConfig, ConvTranspose2d, ConvTranspose2dConfig},
     },
     prelude::Backend,
     record::{HalfPrecisionSettings, NamedMpkFileRecorder, Recorder as _, RecorderError},
-    tensor::{cast::ToElement as _, ElementConversion as _, Tensor},
+    tensor::{ElementConversion as _, Tensor, cast::ToElement as _},
 };
 use burn_import::pytorch::{LoadArgs, PyTorchFileRecorder};
 use decoder::{MultiresConvDecoder, MultiresConvDecoderConfig};

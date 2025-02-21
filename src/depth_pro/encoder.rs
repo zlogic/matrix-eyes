@@ -1,6 +1,6 @@
 use super::{
-    vit::{self, DinoVisionTransformer},
     ConvBlock, ProgressListener, SplitProgressListener,
+    vit::{self, DinoVisionTransformer},
 };
 use burn::{
     config::Config,
@@ -8,9 +8,9 @@ use burn::{
     nn::conv::{Conv2d, Conv2dConfig, ConvTranspose2d, ConvTranspose2dConfig},
     prelude::Backend,
     tensor::{
+        Tensor,
         module::interpolate,
         ops::{InterpolateMode, InterpolateOptions},
-        Tensor,
     },
 };
 
