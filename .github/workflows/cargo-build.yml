@@ -2,9 +2,9 @@ name: Cargo build
 
 on:
   push:
-    branches: [ "main", "use-latest-burn" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main", "use-latest-burn" ]
+    branches: [ "main" ]
 
 jobs:
   validate:
