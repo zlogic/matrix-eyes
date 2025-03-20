@@ -8,8 +8,11 @@ license = "Apache-2.0"
 rust-version = "1.85"
 
 [dependencies]
-burn = { version = "0.17", git = "https://github.com/zlogic/burn", rev = "0ebe115b449bb543c14c65289c32cc6ed871eb43", default-features = false, features = ["std"] }
-burn-import = { version = "0.17", git = "https://github.com/zlogic/burn", rev = "0ebe115b449bb543c14c65289c32cc6ed871eb43", default-features = false, features = ["pytorch"] }
+# Using a custom version to address two issues:
+# 1. matmul and nchw_to_nhwc panicked instead of returning an error.
+# 2. Autotune for conv2d can run autotune for matmul, and img2col increased the tile size so much it failed for all use cases.
+burn = { version = "0.17", git = "https://github.com/zlogic/burn", rev = "b2af9f2e0798a3ee53e6f3766eab0d0dc029e438", default-features = false, features = ["std"] }
+burn-import = { version = "0.17", git = "https://github.com/zlogic/burn", rev = "b2af9f2e0798a3ee53e6f3766eab0d0dc029e438", default-features = false, features = ["pytorch"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 kamadak-exif = { version = "0.6", default-features = false }
 indicatif = { version = "0.17", default-features = false }
@@ -22,7 +25,6 @@ ndarray = ["burn/ndarray"]
 ndarray-accelerate = ["burn/ndarray", "burn/accelerate"]
 candle-cuda = ["burn/candle-cuda", "dep:candle-core"]
 candle-metal = ["burn/candle", "burn/metal"]
-# TODO: restore burn-autotune feature when regressions from https://github.com/tracel-ai/burn/pull/2710 are fixed.
 wgpu = ["burn/wgpu", "burn/fusion", "burn/autotune"]
 wgpu-spirv = ["burn/vulkan", "burn/fusion", "burn/autotune"]
 cuda = ["burn/cuda", "burn/fusion", "burn/autotune"]
