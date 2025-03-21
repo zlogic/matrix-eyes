@@ -179,7 +179,7 @@ jobs:
         cargo build --target=${{ matrix.arch }}-pc-windows-msvc --no-default-features --features=${{ matrix.acceleration }}
 
     - name: Package application
-      run: Compress-Archive -Path .\target\${{ matrix.arch }}-pc-windows-msvc\debug\matrix-eyes.exe -DestinationPath matrix-eyes-${{ runner.os }}-${{ matrix.arch }}-${{ matrix.acceleration }}.zip
+      run: Compress-Archive -Path .\target\${{ matrix.arch }}-pc-windows-msvc\debug\matrix-eyes.exe,.\target\${{ matrix.arch }}-pc-windows-msvc\debug\matrix_eyes.pdb -DestinationPath matrix-eyes-${{ runner.os }}-${{ matrix.arch }}-${{ matrix.acceleration }}.zip
 
     - name: Upload application
       uses: actions/upload-artifact@v4
