@@ -35,7 +35,18 @@ pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
         tasks_max: 1,
         ..Default::default()
     };
-    burn::backend::wgpu::init_setup::<burn::backend::wgpu::graphics::AutoGraphicsApi>(
+    #[cfg(target_os = "windows")]
+    burn::backend::wgpu::init_setup::<burn::backend::wgpu::graphics::Dx12>(
+        &device,
+        runtime_options,
+    );
+    #[cfg(target_os = "macos")]
+    burn::backend::wgpu::init_setup::<burn::backend::wgpu::graphics::Metal>(
+        &device,
+        runtime_options,
+    );
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    burn::backend::wgpu::init_setup::<burn::backend::wgpu::graphics::Vulkan>(
         &device,
         runtime_options,
     );
