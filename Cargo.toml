@@ -21,13 +21,14 @@ candle-core = { version = "*", optional = true, features = ["cudnn"] }
 
 [features]
 default = ["wgpu"]
+autotune = ["burn/autotune"]
 ndarray = ["burn/ndarray"]
 ndarray-accelerate = ["burn/ndarray", "burn/accelerate"]
 candle-cuda = ["burn/candle-cuda", "dep:candle-core"]
 candle-metal = ["burn/candle", "burn/metal"]
-wgpu = ["burn/wgpu", "burn/fusion", "burn/autotune"]
-wgpu-spirv = ["burn/vulkan", "burn/fusion", "burn/autotune"]
-cuda = ["burn/cuda", "burn/fusion", "burn/autotune"]
+wgpu = ["burn/wgpu", "burn/fusion"]
+wgpu-spirv = ["burn/vulkan", "burn/fusion"]
+cuda = ["burn/cuda", "burn/fusion"]
 
 [profile.release]
 strip = true
