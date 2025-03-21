@@ -209,7 +209,7 @@ checksum = "1628fb46dfa0b37568d12e5edd512553eccf6a22a78e8bde00bb4aed84d5bdbf"
 [[package]]
 name = "burn"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "burn-autodiff",
  "burn-candle",
@@ -224,7 +224,7 @@ dependencies = [
 [[package]]
 name = "burn-autodiff"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "burn-common",
  "burn-tensor",
@@ -239,7 +239,7 @@ dependencies = [
 [[package]]
 name = "burn-candle"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "burn-tensor",
  "candle-core",
@@ -250,7 +250,7 @@ dependencies = [
 [[package]]
 name = "burn-common"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "cubecl-common",
  "getrandom 0.3.2",
@@ -262,7 +262,7 @@ dependencies = [
 [[package]]
 name = "burn-core"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "ahash",
  "bincode",
@@ -290,7 +290,7 @@ dependencies = [
 [[package]]
 name = "burn-cubecl"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "burn-common",
  "burn-cubecl-fusion",
@@ -315,7 +315,7 @@ dependencies = [
 [[package]]
 name = "burn-cubecl-fusion"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "burn-common",
  "burn-fusion",
@@ -330,7 +330,7 @@ dependencies = [
 [[package]]
 name = "burn-cuda"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "burn-cubecl",
  "burn-fusion",
@@ -345,7 +345,7 @@ dependencies = [
 [[package]]
 name = "burn-derive"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "derive-new 0.7.0",
  "proc-macro2",
@@ -356,7 +356,7 @@ dependencies = [
 [[package]]
 name = "burn-fusion"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "burn-common",
  "burn-ir",
@@ -372,7 +372,7 @@ dependencies = [
 [[package]]
 name = "burn-hip"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "burn-cubecl",
  "burn-tensor",
@@ -386,7 +386,7 @@ dependencies = [
 [[package]]
 name = "burn-import"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "burn",
  "candle-core",
@@ -410,7 +410,7 @@ dependencies = [
 [[package]]
 name = "burn-ir"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "burn-tensor",
  "hashbrown 0.15.2",
@@ -421,7 +421,7 @@ dependencies = [
 [[package]]
 name = "burn-ndarray"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "atomic_float",
  "blas-src",
@@ -444,7 +444,7 @@ dependencies = [
 [[package]]
 name = "burn-router"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "burn-common",
  "burn-ir",
@@ -457,7 +457,7 @@ dependencies = [
 [[package]]
 name = "burn-tensor"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "burn-common",
  "bytemuck",
@@ -476,7 +476,7 @@ dependencies = [
 [[package]]
 name = "burn-wgpu"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "burn-cubecl",
  "burn-fusion",
@@ -794,7 +794,7 @@ dependencies = [
 [[package]]
 name = "cubecl"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "cubecl-core",
  "cubecl-cuda",
@@ -809,7 +809,7 @@ dependencies = [
 [[package]]
 name = "cubecl-common"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "bytemuck",
  "derive-new 0.6.0",
@@ -834,7 +834,7 @@ dependencies = [
 [[package]]
 name = "cubecl-core"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "bitflags 2.9.0",
  "bytemuck",
@@ -856,7 +856,7 @@ dependencies = [
 [[package]]
 name = "cubecl-cpp"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "bytemuck",
  "cubecl-common",
@@ -870,7 +870,7 @@ dependencies = [
 [[package]]
 name = "cubecl-cuda"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "bytemuck",
  "cubecl-common",
@@ -887,7 +887,7 @@ dependencies = [
 [[package]]
 name = "cubecl-hip"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "bytemuck",
  "cubecl-common",
@@ -913,7 +913,7 @@ dependencies = [
 [[package]]
 name = "cubecl-ir"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "cubecl-common",
  "cubecl-macros-internal",
@@ -931,7 +931,7 @@ dependencies = [
 [[package]]
 name = "cubecl-linalg"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "bytemuck",
  "cubecl-core",
@@ -944,7 +944,7 @@ dependencies = [
 [[package]]
 name = "cubecl-macros"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "cubecl-common",
  "darling",
@@ -959,7 +959,7 @@ dependencies = [
 [[package]]
 name = "cubecl-macros-internal"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -970,7 +970,7 @@ dependencies = [
 [[package]]
 name = "cubecl-opt"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "cubecl-common",
  "cubecl-ir",
@@ -986,7 +986,7 @@ dependencies = [
 [[package]]
 name = "cubecl-reduce"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "cubecl-core",
  "cubecl-runtime",
@@ -998,7 +998,7 @@ dependencies = [
 [[package]]
 name = "cubecl-runtime"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "async-channel",
  "async-lock",
@@ -1018,7 +1018,7 @@ dependencies = [
 [[package]]
 name = "cubecl-spirv"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "bitflags 2.9.0",
  "cubecl-common",
@@ -1033,7 +1033,7 @@ dependencies = [
 [[package]]
 name = "cubecl-std"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "cubecl-core",
  "cubecl-runtime",
@@ -1043,7 +1043,7 @@ dependencies = [
 [[package]]
 name = "cubecl-wgpu"
 version = "0.5.0"
-source = "git+https://github.com/zlogic/cubecl?rev=8373155723f7d1e32c631b5f8985d0fe8b1e5446#8373155723f7d1e32c631b5f8985d0fe8b1e5446"
+source = "git+https://github.com/zlogic/cubecl?rev=e5d21c02e36e5580375544cf149e58af5b1631ad#e5d21c02e36e5580375544cf149e58af5b1631ad"
 dependencies = [
  "ash",
  "async-channel",
@@ -2426,7 +2426,7 @@ checksum = "d75b0bedcc4fe52caa0e03d9f1151a323e4aa5e2d78ba3580400cd3c9e2bc4bc"
 [[package]]
 name = "onnx-ir"
 version = "0.17.0"
-source = "git+https://github.com/zlogic/burn?rev=b2af9f2e0798a3ee53e6f3766eab0d0dc029e438#b2af9f2e0798a3ee53e6f3766eab0d0dc029e438"
+source = "git+https://github.com/zlogic/burn?rev=41e42301fa4af5ecd7f1f49a2b534047f525fed9#41e42301fa4af5ecd7f1f49a2b534047f525fed9"
 dependencies = [
  "bytemuck",
  "half",
