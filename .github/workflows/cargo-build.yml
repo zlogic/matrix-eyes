@@ -206,10 +206,10 @@ jobs:
         echo "CUDNN_LIB=C:\Program Files\NVIDIA\CUDNN\v9.6" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Build
-      run: cargo build --target=${{ matrix.arch }}-pc-windows-msvc --no-default-features --features=$env:FEATURES
+      run: cargo build --target=${{ matrix.arch }}-pc-windows-msvc --no-default-features --features=$env:FEATURES --release
 
     - name: Package application
-      run: Compress-Archive -Path .\target\${{ matrix.arch }}-pc-windows-msvc\debug\matrix-eyes.exe,.\target\${{ matrix.arch }}-pc-windows-msvc\debug\matrix_eyes.pdb -DestinationPath "matrix-eyes-${{ runner.os }}-${{ matrix.arch }}-$env:ARTIFACT_FEATURES.zip"
+      run: Compress-Archive -Path .\target\${{ matrix.arch }}-pc-windows-msvc\release\matrix-eyes.exe -DestinationPath "matrix-eyes-${{ runner.os }}-${{ matrix.arch }}-$env:ARTIFACT_FEATURES.zip"
 
     - name: Upload application
       uses: actions/upload-artifact@v4
