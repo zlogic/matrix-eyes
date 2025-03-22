@@ -22,15 +22,16 @@ rand = { version = "*", features = ["std", "std_rng", "small_rng"] }
 candle-core = { version = "*", optional = true, features = ["cudnn"] }
 
 [features]
-default = ["wgpu"]
+default = ["wgpu", "fusion"]
 autotune = ["burn/autotune"]
+fusion = ["burn/fusion"]
 ndarray = ["burn/ndarray"]
 ndarray-accelerate = ["burn/ndarray", "burn/accelerate"]
 candle-cuda = ["burn/candle-cuda", "dep:candle-core"]
 candle-metal = ["burn/candle", "burn/metal"]
-wgpu = ["burn/wgpu", "burn/fusion"]
-wgpu-spirv = ["burn/vulkan", "burn/fusion"]
-cuda = ["burn/cuda", "burn/fusion"]
+wgpu = ["burn/wgpu"]
+wgpu-spirv = ["burn/vulkan"]
+cuda = ["burn/cuda"]
 
 [profile.release]
 strip = true

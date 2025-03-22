@@ -47,6 +47,12 @@ jobs:
         - arch: x86_64
           os: ubuntu
           acceleration: wgpu-spirv
+          fusion: true
+        - arch: x86_64
+          os: ubuntu
+          acceleration: wgpu-spirv
+          autotune: true
+          fusion: true
         - arch: aarch64
           os: ubuntu
           acceleration: ndarray
@@ -63,9 +69,13 @@ jobs:
       run: |
         FEATURES=${{ matrix.acceleration }}
         ARTIFACT_FEATURES=${{ matrix.acceleration }}
-        if [ "${{matrix.autotune}}" == "true" ]; then
+        if [ "${{ matrix.autotune }}" == "true" ]; then
           FEATURES+=",autotune"
           ARTIFACT_FEATURES+="-autotune"
+        fi
+        if [ "${{ matrix.fusion }}" == "true" ]; then
+          FEATURES+=",fusion"
+          ARTIFACT_FEATURES+="-fusion"
         fi
         echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         echo "ARTIFACT_FEATURES=$ARTIFACT_FEATURES" >> $GITHUB_ENV
@@ -131,9 +141,13 @@ jobs:
         - arch: x86_64
           acceleration: wgpu-spirv
           autotune: true
+          fusion: true
         - arch: x86_64
           acceleration: wgpu-spirv
-          autotune: false
+          autotune: true
+        - arch: x86_64
+          acceleration: wgpu-spirv
+          fusion: true
         #- arch: x86_64
         #  acceleration: cuda
         #- arch: x86_64
@@ -159,6 +173,11 @@ jobs:
         {
           $features += ",autotune"
           $artifact_features += "-autotune"
+        }
+        if ( "${{ matrix.fusion }}" -eq "true" )
+        {
+          $features += ",fusion"
+          $artifact_features += "-fusion"
         }
         echo "FEATURES=$features" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         echo "ARTIFACT_FEATURES=$artifact_features" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -250,14 +269,19 @@ jobs:
         include:
         - arch: x86_64
           acceleration: wgpu
+          fusion: true
+          autotune: true
         - arch: x86_64
           acceleration: wgpu
+          fusion: true
         - arch: x86_64
           acceleration: candle-metal
         - arch: x86_64
           acceleration: ndarray-accelerate
         - arch: aarch64
           acceleration: wgpu
+          fusion: true
+          autotune: true
         - arch: aarch64
           acceleration: candle-metal
         - arch: aarch64
@@ -278,6 +302,10 @@ jobs:
         if [ "${{matrix.autotune}}" == "true" ]; then
           FEATURES+=",autotune"
           ARTIFACT_FEATURES+="-autotune"
+        fi
+        if [ "${{ matrix.fusion }}" == "true" ]; then
+          FEATURES+=",fusion"
+          ARTIFACT_FEATURES+="-fusion"
         fi
         echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         echo "ARTIFACT_FEATURES=$ARTIFACT_FEATURES" >> $GITHUB_ENV
