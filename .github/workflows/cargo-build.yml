@@ -148,8 +148,9 @@ jobs:
         - arch: x86_64
           acceleration: wgpu-spirv
           fusion: true
-        #- arch: x86_64
-        #  acceleration: cuda
+        - arch: x86_64
+          acceleration: cuda
+          fusion: true
         #- arch: x86_64
         #  acceleration: ndarray
         #- arch: aarch64
