@@ -1,6 +1,6 @@
 [package]
 name = "matrix-eyes"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 authors = ["Dmitry Zolotukhin <zlogic@gmail.com>"]
 repository = "https://github.com/zlogic/matrix-eyes"
@@ -8,18 +8,12 @@ license = "Apache-2.0"
 rust-version = "1.85"
 
 [dependencies]
-# Using a custom version to address two issues:
-# 1. matmul and nchw_to_nhwc panicked instead of returning an error.
-# 2. Autotune for conv2d can run autotune for matmul, and img2col increased the tile size so much it failed for all use cases.
-# 3. Some wgpu-spirv operations cause OOM and device loss errors, and they're not caught.
-#    A bug in wgpu ignores device loss errors and just sits idle with no activity.
-burn = { version = "0.17", git = "https://github.com/zlogic/burn", rev = "41e42301fa4af5ecd7f1f49a2b534047f525fed9", default-features = false, features = ["std"] }
-burn-import = { version = "0.17", git = "https://github.com/zlogic/burn", rev = "41e42301fa4af5ecd7f1f49a2b534047f525fed9", default-features = false, features = ["pytorch"] }
+burn = { version = "0.17", git = "https://github.com/tracel-ai/burn", rev = "8a6f37c4eca6e56a284ec840f6fd5a8111643f14", default-features = false, features = ["std"] }
+burn-import = { version = "0.17", git = "https://github.com/tracel-ai/burn", rev = "8a6f37c4eca6e56a284ec840f6fd5a8111643f14", default-features = false, features = ["pytorch"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 kamadak-exif = { version = "0.6", default-features = false }
 indicatif = { version = "0.17", default-features = false }
 rand = { version = "*", features = ["std", "std_rng", "small_rng"] }
-candle-core = { version = "*", optional = true, features = ["cudnn"] }
 
 [features]
 default = ["wgpu", "fusion"]
@@ -27,8 +21,6 @@ autotune = ["burn/autotune"]
 fusion = ["burn/fusion"]
 ndarray = ["burn/ndarray"]
 ndarray-accelerate = ["burn/ndarray", "burn/accelerate"]
-candle-cuda = ["burn/candle-cuda", "dep:candle-core"]
-candle-metal = ["burn/candle", "burn/metal"]
 wgpu = ["burn/wgpu"]
 wgpu-spirv = ["burn/vulkan"]
 cuda = ["burn/cuda"]

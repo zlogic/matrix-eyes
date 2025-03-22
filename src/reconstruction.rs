@@ -18,8 +18,6 @@ pub type EnabledBackend = burn::backend::NdArray;
 pub type EnabledBackend = burn::backend::Wgpu;
 #[cfg(feature = "wgpu-spirv")]
 pub type EnabledBackend = burn::backend::Wgpu;
-#[cfg(any(feature = "candle-cuda", feature = "candle-metal"))]
-pub type EnabledBackend = burn::backend::Candle;
 #[cfg(feature = "cuda")]
 pub type EnabledBackend = burn::backend::Cuda;
 
@@ -40,16 +38,6 @@ pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
         runtime_options,
     );
     device
-}
-
-#[cfg(feature = "candle-cuda")]
-pub fn init_device() -> burn::backend::candle::CandleDevice {
-    burn::backend::candle::CandleDevice::cuda(0)
-}
-
-#[cfg(feature = "candle-metal")]
-pub fn init_device() -> burn::backend::candle::CandleDevice {
-    burn::backend::candle::CandleDevice::metal(0)
 }
 
 #[cfg(feature = "cuda")]

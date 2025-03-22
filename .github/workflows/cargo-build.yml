@@ -41,7 +41,7 @@ jobs:
         include:
         - arch: x86_64
           os: ubuntu
-          acceleration: candle-cuda
+          acceleration: cuda
         - arch: x86_64
           os: ubuntu
           acceleration: wgpu-spirv
@@ -99,7 +99,7 @@ jobs:
         echo "CXXFLAGS=-march=armv8.2-a" >> $GITHUB_ENV
 
     - name: Install CUDA
-      if: matrix.acceleration == 'candle-cuda' || matrix.acceleration == 'cuda'
+      if: matrix.acceleration == 'cuda'
       run: |
         curl -LOJ https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
         sudo dpkg -i cuda-keyring_1.1-1_all.deb
@@ -129,8 +129,6 @@ jobs:
       fail-fast: true
       matrix:
         include:
-        - arch: x86_64
-          acceleration: candle-cuda
         - arch: x86_64
           acceleration: wgpu-spirv
           features: fusion,autotune
@@ -187,14 +185,14 @@ jobs:
       run: rustup target add ${{ matrix.arch }}-pc-windows-msvc
 
     - name: Install CUDA
-      if: matrix.acceleration == 'candle-cuda' || matrix.acceleration == 'cuda'
+      if: matrix.acceleration == 'cuda'
       run: |
         Invoke-WebRequest https://developer.download.nvidia.com/compute/cuda/12.6.3/network_installers/cuda_12.6.3_windows_network.exe -OutFile cuda_12.6.3_windows_network.exe
         $FileHash = Get-FileHash cuda_12.6.3_windows_network.exe -Algorithm MD5
         if ($FileHash.Hash -ne "48d5d66c3550b7744715c638dac4f522") {
           Write-Error "Download hash mismatch" -ErrorAction Stop
         }
-        Start-Process -FilePath .\cuda_12.6.3_windows_network.exe -ArgumentList "-s nvcc_12.6 cudart_12.6 nvrtc_12.6 nvrtc_dev_12.6 curand_12.6 curand_dev_12.6 cublas_12.6 cublas_dev_12.6" -Wait -NoNewWindow
+        Start-Process -FilePath .\cuda_12.6.3_windows_network.exe -ArgumentList "-s nvcc_12.6 cudart_12.6 nvrtc_12.6 nvrtc_dev_12.6" -Wait -NoNewWindow
         echo "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "C:\Program Files\Microsoft Visual Studio\2022\Enterprise" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "CUDA_COMPUTE_CAP=75" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -202,15 +200,6 @@ jobs:
         $version = Get-Content "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt" -Raw
         $version = $version.Trim()
         echo "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\$version\bin\HostX64\x64" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-    - name: Install cuDNN
-      if: matrix.acceleration == 'candle-cuda'
-      run: |
-        Invoke-WebRequest https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/windows-x86_64/cudnn-windows-x86_64-9.6.0.74_cuda12-archive.zip -OutFile cudnn-windows-x86_64-9.6.0.74_cuda12-archive.zip
-        New-Item -Path "C:\Program Files\NVIDIA\CUDNN" -ItemType "directory" -Force
-        Expand-Archive -Path cudnn-windows-x86_64-9.6.0.74_cuda12-archive.zip -DestinationPath "C:\Program Files\NVIDIA\CUDNN\"
-        Move-Item -Path "C:\Program Files\NVIDIA\CUDNN\cudnn*" "C:\Program Files\NVIDIA\CUDNN\v9.6"
-        echo "CUDNN_LIB=C:\Program Files\NVIDIA\CUDNN\v9.6" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Build
       run: cargo build --target=${{ matrix.arch }}-pc-windows-msvc --no-default-features --features=$env:FEATURES --release
@@ -224,23 +213,7 @@ jobs:
         name: matrix-eyes-${{ runner.os }}-${{ matrix.arch }}-${{ steps.set-features-env.outputs.ARTIFACT_FEATURES }}
         path: matrix-eyes-*.zip
 
-    - name: Package Candle CUDA dependencies
-      if: false # matrix.acceleration == 'candle-cuda'
-      run: |
-        New-Item -Path . -Name "cuda" -ItemType "directory"
-        cp "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\bin\cublas64_12.dll" cuda
-        cp "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\bin\cublasLt64_12.dll" cuda
-        cp "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\bin\curand64_10.dll" cuda
-        cp "C:\Program Files\NVIDIA\CUDNN\v9.6\bin\cudnn_cnn64_9.dll" cuda
-        cp "C:\Program Files\NVIDIA\CUDNN\v9.6\bin\cudnn_engines_precompiled64_9.dll" cuda
-        cp "C:\Program Files\NVIDIA\CUDNN\v9.6\bin\cudnn_engines_runtime_compiled64_9.dll" cuda
-        cp "C:\Program Files\NVIDIA\CUDNN\v9.6\bin\cudnn_graph64_9.dll" cuda
-        cp "C:\Program Files\NVIDIA\CUDNN\v9.6\bin\cudnn_heuristic64_9.dll" cuda
-        cp "C:\Program Files\NVIDIA\CUDNN\v9.6\bin\cudnn_ops64_9.dll" cuda
-        cp "C:\Program Files\NVIDIA\CUDNN\v9.6\bin\cudnn64_9.dll" cuda
-        Compress-Archive -Path .\cuda\* -DestinationPath cuda-${{ runner.os }}-${{ matrix.arch }}-candle.zip
-
-    - name: Package Burn CUDA dependencies
+    - name: Package CUDA dependencies
       if: matrix.acceleration == 'cuda'
       run: |
         New-Item -Path . -Name "cuda" -ItemType "directory"
@@ -254,7 +227,7 @@ jobs:
 
     - name: Upload CUDA
       uses: actions/upload-artifact@v4
-      if: matrix.acceleration == 'candle-cuda' || matrix.acceleration == 'cuda'
+      if: false # matrix.acceleration == 'cuda'
       with:
         name: cuda-${{ runner.os }}-${{ matrix.arch }}
         path: cuda-*.zip
@@ -273,8 +246,6 @@ jobs:
           acceleration: wgpu
           features: fusion
         - arch: x86_64
-          acceleration: candle-metal
-        - arch: x86_64
           acceleration: ndarray-accelerate
         - arch: aarch64
           acceleration: wgpu
@@ -282,8 +253,6 @@ jobs:
         - arch: aarch64
           acceleration: wgpu
           features: fusion
-        - arch: aarch64
-          acceleration: candle-metal
         - arch: aarch64
           acceleration: ndarray-accelerate
 
