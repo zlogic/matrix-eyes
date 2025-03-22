@@ -32,7 +32,7 @@ pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
 pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
     let device = burn::backend::wgpu::WgpuDevice::DefaultDevice;
     let runtime_options = burn::backend::wgpu::RuntimeOptions {
-        tasks_max: 1,
+        tasks_max: 8,
         ..Default::default()
     };
     burn::backend::wgpu::init_setup::<burn::backend::wgpu::graphics::AutoGraphicsApi>(
