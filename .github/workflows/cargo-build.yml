@@ -2,14 +2,13 @@ name: Cargo build
 
 on:
   push:
-    branches: [ "fix-wgpu-spirv-autotune" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "fix-wgpu-spirv-autotune" ]
+    branches: [ "main" ]
 
 jobs:
   validate:
     runs-on: ubuntu-latest
-    if: false
     strategy:
       fail-fast: true
     steps:
@@ -36,7 +35,6 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     needs: validate
-    if: false
     strategy:
       fail-fast: true
       matrix:
@@ -126,29 +124,29 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
-    # needs: validate
+    needs: validate
     strategy:
       fail-fast: true
       matrix:
         include:
-        #- arch: x86_64
-        #  acceleration: candle-cuda
-        #- arch: x86_64
-        #  acceleration: wgpu-spirv
-        #  features: fusion,autotune
-        #- arch: x86_64
-        #  acceleration: wgpu-spirv
-        #  features: autotune
-        #- arch: x86_64
-        #  acceleration: wgpu-spirv
-        #  features: fusion
+        - arch: x86_64
+          acceleration: candle-cuda
+        - arch: x86_64
+          acceleration: wgpu-spirv
+          features: fusion,autotune
+        - arch: x86_64
+          acceleration: wgpu-spirv
+          features: autotune
+        - arch: x86_64
+          acceleration: wgpu-spirv
+          features: fusion
         - arch: x86_64
           acceleration: cuda
           features: fusion
-        #- arch: x86_64
-        #  acceleration: ndarray
-        #- arch: aarch64
-        #  acceleration: ndarray
+        - arch: x86_64
+          acceleration: ndarray
+        - arch: aarch64
+          acceleration: ndarray
 
     steps:
     - uses: actions/checkout@v4
@@ -264,7 +262,6 @@ jobs:
   build-macos:
     runs-on: macos-latest
     needs: validate
-    if: false
     strategy:
       fail-fast: true
       matrix:
