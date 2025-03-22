@@ -47,12 +47,11 @@ jobs:
         - arch: x86_64
           os: ubuntu
           acceleration: wgpu-spirv
-          fusion: true
+          features: fusion
         - arch: x86_64
           os: ubuntu
           acceleration: wgpu-spirv
-          autotune: true
-          fusion: true
+          features: fusion,autotune
         - arch: aarch64
           os: ubuntu
           acceleration: ndarray
@@ -69,13 +68,9 @@ jobs:
       run: |
         FEATURES=${{ matrix.acceleration }}
         ARTIFACT_FEATURES=${{ matrix.acceleration }}
-        if [ "${{ matrix.autotune }}" == "true" ]; then
-          FEATURES+=",autotune"
-          ARTIFACT_FEATURES+="-autotune"
-        fi
-        if [ "${{ matrix.fusion }}" == "true" ]; then
-          FEATURES+=",fusion"
-          ARTIFACT_FEATURES+="-fusion"
+        if [ -z "${{ matrix.features }}" ]; then
+          FEATURES+=",${{ matrix.features }}"
+          ARTIFACT_FEATURES+="-$( printf "${{ matrix.features }} | sed s/,/-/g )"
         fi
         echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         echo "ARTIFACT_FEATURES=$ARTIFACT_FEATURES" >> $GITHUB_ENV
@@ -140,17 +135,16 @@ jobs:
         #  acceleration: candle-cuda
         - arch: x86_64
           acceleration: wgpu-spirv
-          autotune: true
-          fusion: true
+          features: fusion,autotune
         - arch: x86_64
           acceleration: wgpu-spirv
-          autotune: true
+          features: autotune
         - arch: x86_64
           acceleration: wgpu-spirv
-          fusion: true
+          features: fusion
         - arch: x86_64
           acceleration: cuda
-          fusion: true
+          features: fusion
         #- arch: x86_64
         #  acceleration: ndarray
         #- arch: aarch64
@@ -170,15 +164,10 @@ jobs:
       run: |
         $features = "${{ matrix.acceleration }}"
         $artifact_features = "${{ matrix.acceleration }}"
-        if ( "${{ matrix.autotune }}" -eq "true" )
+        if ( "${{ matrix.features }}" )
         {
-          $features += ",autotune"
-          $artifact_features += "-autotune"
-        }
-        if ( "${{ matrix.fusion }}" -eq "true" )
-        {
-          $features += ",fusion"
-          $artifact_features += "-fusion"
+          $features += ",${{ matrix.features }}"
+          $artifact_features += "-${{ matrix.features }}" -replace ",", "-"
         }
         echo "FEATURES=$features" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         echo "ARTIFACT_FEATURES=$artifact_features" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -270,19 +259,17 @@ jobs:
         include:
         - arch: x86_64
           acceleration: wgpu
-          fusion: true
-          autotune: true
+          features: autotune,fusion
         - arch: x86_64
           acceleration: wgpu
-          fusion: true
+          features: autotune,fusion
         - arch: x86_64
           acceleration: candle-metal
         - arch: x86_64
           acceleration: ndarray-accelerate
         - arch: aarch64
           acceleration: wgpu
-          fusion: true
-          autotune: true
+          features: autotune,fusion
         - arch: aarch64
           acceleration: candle-metal
         - arch: aarch64
@@ -300,13 +287,9 @@ jobs:
       run: |
         FEATURES=${{ matrix.acceleration }}
         ARTIFACT_FEATURES=${{ matrix.acceleration }}
-        if [ "${{matrix.autotune}}" == "true" ]; then
-          FEATURES+=",autotune"
-          ARTIFACT_FEATURES+="-autotune"
-        fi
-        if [ "${{ matrix.fusion }}" == "true" ]; then
-          FEATURES+=",fusion"
-          ARTIFACT_FEATURES+="-fusion"
+        if [ -z "${{ matrix.features }}" ]; then
+          FEATURES+=",${{ matrix.features }}"
+          ARTIFACT_FEATURES+="-$( printf "${{ matrix.features }} | sed s/,/-/g )"
         fi
         echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         echo "ARTIFACT_FEATURES=$ARTIFACT_FEATURES" >> $GITHUB_ENV
