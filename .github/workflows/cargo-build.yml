@@ -133,15 +133,15 @@ jobs:
         include:
         #- arch: x86_64
         #  acceleration: candle-cuda
-        - arch: x86_64
-          acceleration: wgpu-spirv
-          features: fusion,autotune
-        - arch: x86_64
-          acceleration: wgpu-spirv
-          features: autotune
-        - arch: x86_64
-          acceleration: wgpu-spirv
-          features: fusion
+        #- arch: x86_64
+        #  acceleration: wgpu-spirv
+        #  features: fusion,autotune
+        #- arch: x86_64
+        #  acceleration: wgpu-spirv
+        #  features: autotune
+        #- arch: x86_64
+        #  acceleration: wgpu-spirv
+        #  features: fusion
         - arch: x86_64
           acceleration: cuda
           features: fusion
@@ -196,7 +196,7 @@ jobs:
         if ($FileHash.Hash -ne "48d5d66c3550b7744715c638dac4f522") {
           Write-Error "Download hash mismatch" -ErrorAction Stop
         }
-        Start-Process -FilePath .\cuda_12.6.3_windows_network.exe -ArgumentList "-s nvcc_12.6 cudart_12.6 nvrtc_dev_12.6 curand_12.6 curand_dev_12.6 cublas_12.6 cublas_dev_12.6" -Wait -NoNewWindow
+        Start-Process -FilePath .\cuda_12.6.3_windows_network.exe -ArgumentList "-s nvcc_12.6 cudart_12.6 nvrtc_12.6 nvrtc_dev_12.6 curand_12.6 curand_dev_12.6 cublas_12.6 cublas_dev_12.6" -Wait -NoNewWindow
         echo "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "C:\Program Files\Microsoft Visual Studio\2022\Enterprise" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "CUDA_COMPUTE_CAP=75" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -226,7 +226,7 @@ jobs:
         name: matrix-eyes-${{ runner.os }}-${{ matrix.arch }}-${{ steps.set-features-env.outputs.ARTIFACT_FEATURES }}
         path: matrix-eyes-*.zip
 
-    - name: Package CUDA
+    - name: Package Candle CUDA dependencies
       if: false # matrix.acceleration == 'candle-cuda'
       run: |
         New-Item -Path . -Name "cuda" -ItemType "directory"
@@ -240,11 +240,23 @@ jobs:
         cp "C:\Program Files\NVIDIA\CUDNN\v9.6\bin\cudnn_heuristic64_9.dll" cuda
         cp "C:\Program Files\NVIDIA\CUDNN\v9.6\bin\cudnn_ops64_9.dll" cuda
         cp "C:\Program Files\NVIDIA\CUDNN\v9.6\bin\cudnn64_9.dll" cuda
-        Compress-Archive -Path .\cuda\* -DestinationPath cuda-${{ runner.os }}-${{ matrix.arch }}.zip
+        Compress-Archive -Path .\cuda\* -DestinationPath cuda-${{ runner.os }}-${{ matrix.arch }}-candle.zip
+
+    - name: Package Burn CUDA dependencies
+      if: matrix.acceleration == 'cuda'
+      run: |
+        New-Item -Path . -Name "cuda" -ItemType "directory"
+        New-Item -Path "cuda" -Name "include" -ItemType "directory"
+        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\bin\nvrtc64_120_0.dll" -Destination "cuda"
+        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\bin\nvrtc-builtins64_126.dll" -Destination "cuda"
+        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\include\*.*" -Destination "cuda\include"
+        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\include\crt" -Destination "cuda\include\crt" -Recurse
+        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\include\cooperative_groups" "cuda\include\cooperative_groups" -Recurse
+        Compress-Archive -Path .\cuda\* -DestinationPath cuda-${{ runner.os }}-${{ matrix.arch }}-burn.zip
 
     - name: Upload CUDA
       uses: actions/upload-artifact@v4
-      if: matrix.acceleration == 'candle-cuda'
+      if: matrix.acceleration == 'candle-cuda' || matrix.acceleration == 'cuda'
       with:
         name: cuda-${{ runner.os }}-${{ matrix.arch }}
         path: cuda-*.zip
