@@ -66,9 +66,9 @@ jobs:
       run: |
         FEATURES=${{ matrix.acceleration }}
         ARTIFACT_FEATURES=${{ matrix.acceleration }}
-        if [ -z "${{ matrix.features }}" ]; then
+        if [ -n "${{ matrix.features }}" ]; then
           FEATURES+=",${{ matrix.features }}"
-          ARTIFACT_FEATURES+="-$( printf "${{ matrix.features }} | sed s/,/-/g )"
+          ARTIFACT_FEATURES+="-$( printf "${{ matrix.features }}" | sed s/,/-/g )"
         fi
         echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         echo "ARTIFACT_FEATURES=$ARTIFACT_FEATURES" >> $GITHUB_ENV
@@ -299,9 +299,9 @@ jobs:
       run: |
         FEATURES=${{ matrix.acceleration }}
         ARTIFACT_FEATURES=${{ matrix.acceleration }}
-        if [ -z "${{ matrix.features }}" ]; then
+        if [ -n "${{ matrix.features }}" ]; then
           FEATURES+=",${{ matrix.features }}"
-          ARTIFACT_FEATURES+="-$( printf "${{ matrix.features }} | sed s/,/-/g )"
+          ARTIFACT_FEATURES+="-$( printf "${{ matrix.features }}" | sed s/,/-/g )"
         fi
         echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         echo "ARTIFACT_FEATURES=$ARTIFACT_FEATURES" >> $GITHUB_ENV
