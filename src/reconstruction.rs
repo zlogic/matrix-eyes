@@ -31,7 +31,7 @@ pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
 #[cfg(any(feature = "wgpu", feature = "wgpu-spirv"))]
 pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
     let device = burn::backend::wgpu::WgpuDevice::DefaultDevice;
-    let tasks_max = if cfg!(feature = "autotune") { 1 } else { 8 };
+    let tasks_max = if cfg!(feature = "autotune") { 1 } else { 4 };
     let runtime_options = burn::backend::wgpu::RuntimeOptions {
         tasks_max,
         ..Default::default()
