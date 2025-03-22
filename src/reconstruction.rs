@@ -7,7 +7,7 @@ use burn::{
     prelude::Backend,
     tensor::{Float, Tensor, TensorData},
 };
-use image::{imageops, DynamicImage, ImageDecoder, ImageReader};
+use image::{DynamicImage, ImageDecoder, ImageReader, imageops};
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
 use crate::{depth_pro, output};
@@ -31,10 +31,9 @@ pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
 #[cfg(any(feature = "wgpu", feature = "wgpu-spirv"))]
 pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
     let device = burn::backend::wgpu::WgpuDevice::DefaultDevice;
-    let tasks_max = 1;
     let runtime_options = burn::backend::wgpu::RuntimeOptions {
-        tasks_max,
-        memory_config: burn::backend::wgpu::MemoryConfiguration::ExclusivePages,
+        tasks_max: 1,
+        ..Default::default()
     };
     burn::backend::wgpu::init_setup::<burn::backend::wgpu::graphics::AutoGraphicsApi>(
         &device,
