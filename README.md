@@ -38,16 +38,23 @@ The following versions are available:
 * Windows
   * ndarray (slow, CPU-only version)
   * candle-cuda (fastest version, using the candle backend and cuDNN libraries)
-  * wgpu-spirv (vendor-neutral GPU version, fails to run on a GPU with 8GB of VRAM)
+  * wgpu-spirv-fusion-autotune (vendor-neutral GPU version with fusion and autotune enabled, fails to run on a GPU with 8GB of VRAM)
+  * wgpu-spirv-autotune (vendor-neutral GPU version with autotune enabled, fails to run on a GPU with 8GB of VRAM)
+  * wgpu-spirv-fusion (vendor-neutral GPU version with fusion enabled, runs on a GPU with 8GB of VRAM, performance comparable to candle-cuda)
 * Ubuntu
   * ndarray (slow, CPU-only version)
   * candle-cuda (not tested)
-  * wgpu-spirv (not tested)
+  * wgpu-spirv-fusion-autotune (not tested)
+  * wgpu-spirv-autotune (not tested)
+  * wgpu-spirv-fusion (not tested)
 * macOS
-  * wgpu-spirv (wgpu version, uses 12+ GB when running)
+  * wgpu-fusion-autotune (wgpu version with fusion and autotune enabled, uses 12+ GB when running)
+  * wgpu-fusion (wgpu version with fusion enabled, uses 12+ GB when running, runs faster than fusion-autotune)
   * ndarray-accelerate (slow, CPU-only version that might be using AMX instructions)
 
-For the Windows CUDA version, download the [CUDA libraries](https://github.com/zlogic/matrix-eyes/releases/download/0.1.0/cuda-Windows-x86_64.zip) artifact and extract its contents into the same directory.
+For the Windows `candle-cuda` version, download the [Candle CUDA libraries](https://github.com/zlogic/matrix-eyes/releases/download/0.1.0/cuda-Windows-x86_64.zip) artifact and extract its contents into the same directory.
+
+For the Windows `cuda` version, download the [Burn CUDA libraries](https://github.com/zlogic/matrix-eyes/releases/download/0.1.1/cuda-Windows-x86_64-burn.zip) artifact and extract its contents into the same directory. Set the `CUDA_PATH` environment variable to the path where you've extracted matrix-eyes and the Burn CUDA libraries artifact.
 
 Download the model checkpoints:
 
@@ -95,7 +102,9 @@ This can help with making noise pixels large enough to be visible.
 
 Matrix Eyes was tested to support CPU-only and GPU-accelerated processing on:
 
+* Apple Macbook Pro M4 Max (2024) (ndarray-accelerate, ndarray and wgpu versions)
 * Apple Macbook Pro M1 Max (2021) (ndarray-accelerate, ndarray and wgpu versions)
-* Windows 11, i7-11800H, Geforce RTX 3070 (candle-cuda and ndarray versions)
+* Windows 11, i7-11800H, Geforce RTX 3070 (candle-cuda, wgpu and ndarray versions)
+  * Only wgpu-fusion worked successfully, as other versions need more than 8GB VRAM and cause exceptions or device loss issues.
 * Fedora 41 in WSL (ndarray version)
 
