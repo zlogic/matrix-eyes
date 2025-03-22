@@ -34,7 +34,7 @@ pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
     let tasks_max = if cfg!(feature = "autotune") { 1 } else { 4 };
     let runtime_options = burn::backend::wgpu::RuntimeOptions {
         tasks_max,
-        ..Default::default()
+        memory_config: burn::backend::wgpu::MemoryConfiguration::ExclusivePages,
     };
     burn::backend::wgpu::init_setup::<burn::backend::wgpu::graphics::AutoGraphicsApi>(
         &device,
