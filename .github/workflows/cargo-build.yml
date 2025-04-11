@@ -240,18 +240,18 @@ jobs:
       matrix:
         include:
         - arch: x86_64
-          acceleration: wgpu
+          acceleration: wgpu-metal
           features: autotune,fusion
         - arch: x86_64
-          acceleration: wgpu
+          acceleration: wgpu-metal
           features: fusion
         - arch: x86_64
           acceleration: ndarray-accelerate
         - arch: aarch64
-          acceleration: wgpu
+          acceleration: wgpu-metal
           features: autotune,fusion
         - arch: aarch64
-          acceleration: wgpu
+          acceleration: wgpu-metal
           features: fusion
         - arch: aarch64
           acceleration: ndarray-accelerate

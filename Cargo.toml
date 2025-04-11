@@ -8,8 +8,8 @@ license = "Apache-2.0"
 rust-version = "1.85"
 
 [dependencies]
-burn = { version = "0.17", git = "https://github.com/tracel-ai/burn", rev = "8a6f37c4eca6e56a284ec840f6fd5a8111643f14", default-features = false, features = ["std"] }
-burn-import = { version = "0.17", git = "https://github.com/tracel-ai/burn", rev = "8a6f37c4eca6e56a284ec840f6fd5a8111643f14", default-features = false, features = ["pytorch"] }
+burn = { version = "0.17", git = "https://github.com/tracel-ai/burn", rev = "066bd0d9f492fa6211ebb38f7a07ec18bf08086e", default-features = false, features = ["std"] }
+burn-import = { version = "0.17", git = "https://github.com/tracel-ai/burn", rev = "066bd0d9f492fa6211ebb38f7a07ec18bf08086e", default-features = false, features = ["pytorch"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 kamadak-exif = { version = "0.6", default-features = false }
 indicatif = { version = "0.17", default-features = false }
@@ -22,6 +22,7 @@ fusion = ["burn/fusion"]
 ndarray = ["burn/ndarray"]
 ndarray-accelerate = ["burn/ndarray", "burn/accelerate"]
 wgpu = ["burn/wgpu"]
+wgpu-metal = ["burn/metal"]
 wgpu-spirv = ["burn/vulkan"]
 cuda = ["burn/cuda"]
 
