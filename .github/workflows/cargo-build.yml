@@ -2,7 +2,7 @@ name: Cargo build
 
 on:
   push:
-    branches: [ "fix-spirv" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
@@ -35,7 +35,6 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     needs: validate
-    if: false
     strategy:
       fail-fast: true
       matrix:
@@ -130,12 +129,12 @@ jobs:
       fail-fast: true
       matrix:
         include:
-        #- arch: x86_64
-        #  acceleration: wgpu-spirv
-        #  features: fusion,autotune
-        #- arch: x86_64
-        #  acceleration: wgpu-spirv
-        #  features: autotune
+        - arch: x86_64
+          acceleration: wgpu-spirv
+          features: fusion,autotune
+        - arch: x86_64
+          acceleration: wgpu-spirv
+          features: autotune
         - arch: x86_64
           acceleration: wgpu-spirv
           features: fusion
@@ -143,12 +142,9 @@ jobs:
           acceleration: cuda
           features: fusion
         - arch: x86_64
-          acceleration: wgpu-spirv
-          features: ""
-        #- arch: x86_64
-        #  acceleration: ndarray
-        #- arch: aarch64
-        #  acceleration: ndarray
+          acceleration: ndarray
+        - arch: aarch64
+          acceleration: ndarray
 
     steps:
     - uses: actions/checkout@v4
@@ -206,10 +202,10 @@ jobs:
         echo "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\$version\bin\HostX64\x64" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
     - name: Build
-      run: cargo build --target=${{ matrix.arch }}-pc-windows-msvc --no-default-features --features=$env:FEATURES
+      run: cargo build --target=${{ matrix.arch }}-pc-windows-msvc --no-default-features --features=$env:FEATURES --release
 
     - name: Package application
-      run: Compress-Archive -Path .\target\${{ matrix.arch }}-pc-windows-msvc\debug\matrix-eyes.exe,.\target\${{ matrix.arch }}-pc-windows-msvc\debug\matrix_eyes.pdb -DestinationPath "matrix-eyes-${{ runner.os }}-${{ matrix.arch }}-$env:ARTIFACT_FEATURES.zip"
+      run: Compress-Archive -Path .\target\${{ matrix.arch }}-pc-windows-msvc\release\matrix-eyes.exe -DestinationPath "matrix-eyes-${{ runner.os }}-${{ matrix.arch }}-$env:ARTIFACT_FEATURES.zip"
 
     - name: Upload application
       uses: actions/upload-artifact@v4
@@ -239,7 +235,6 @@ jobs:
   build-macos:
     runs-on: macos-latest
     needs: validate
-    if: false
     strategy:
       fail-fast: true
       matrix:
