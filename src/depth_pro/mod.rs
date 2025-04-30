@@ -199,14 +199,6 @@ impl DepthProModelLoader {
         const ENCODER_FEATURE_DIMS: [usize; 4] = [256, 512, 1024, 1024];
         const DECODER_FEATURES: usize = 256;
 
-        println!("Loaded image");
-        debug_tensor(
-            img.clone()
-                .slice([0..1, 0..1, 100..105, 100..105])
-                .squeeze::<3>(0)
-                .squeeze::<2>(0),
-        );
-
         let pl = SplitProgressListener {
             pl: pl.map(|pl| Arc::new(pl)),
             range: 0.0..1.0,
@@ -231,16 +223,6 @@ impl DepthProModelLoader {
             pl.report_status(1.0);
             encoder.forward_encodings(img.clone(), pl_encoder)
         };
-
-        for (i, enc) in encodings.iter().enumerate() {
-            println!("Completed encodings {i} {:?}", enc.dims());
-            debug_tensor(
-                enc.clone()
-                    .slice([0..1, 0..1, 10..15, 10..15])
-                    .squeeze::<3>(0)
-                    .squeeze::<2>(0),
-            );
-        }
         let (pl, next_pl) = next_pl.split_range(0.98);
 
         let (features, features_0) = {
@@ -276,61 +258,19 @@ impl DepthProModelLoader {
             pl.update_message("forwarding head".into());
 
             let features = head[0].forward(features);
-            println!("Features 0 {:?}", features.dims());
-            debug_tensor(
-                features
-                    .clone()
-                    .slice([0..1, 0..1, 10..15, 10..15])
-                    .squeeze::<3>(0)
-                    .squeeze::<2>(0),
-            );
             pl.report_status(0.3);
             let features = head[1].forward(features);
-            println!("Features 1 {:?}", features.dims());
-            debug_tensor(
-                features
-                    .clone()
-                    .slice([0..1, 0..1, 10..15, 10..15])
-                    .squeeze::<3>(0)
-                    .squeeze::<2>(0),
-            );
             pl.report_status(0.6);
             let features = head[2].forward(features);
-            println!("Features 2 {:?}", features.dims());
-            debug_tensor(
-                features
-                    .clone()
-                    .slice([0..1, 0..1, 10..15, 10..15])
-                    .squeeze::<3>(0)
-                    .squeeze::<2>(0),
-            );
             pl.report_status(0.8);
             let features = Relu::new().forward(features);
-            println!("Features RELU {:?}", features.dims());
-            debug_tensor(
-                features
-                    .clone()
-                    .slice([0..1, 0..1, 10..15, 10..15])
-                    .squeeze::<3>(0)
-                    .squeeze::<2>(0),
-            );
             pl.report_status(0.9);
             let features = head[3].forward(features);
             pl.report_status(0.95);
-            println!("Features 3 {:?}", features.dims());
-            debug_tensor(
-                features
-                    .clone()
-                    .slice([0..1, 0..1, 10..15, 10..15])
-                    .squeeze::<3>(0)
-                    .squeeze::<2>(0),
-            );
             Relu::new().forward(features)
         };
 
         let canonical_inverse_depth = canonical_inverse_depth.squeeze::<3>(0).squeeze::<2>(0);
-        println!("inv_depth {:?}", canonical_inverse_depth.dims());
-        debug_tensor(canonical_inverse_depth.clone().slice([10..15, 10..15]));
 
         let f_norm = if let Some(f_norm) = f_norm {
             f_norm
@@ -354,7 +294,6 @@ impl DepthProModelLoader {
         };
 
         let inverse_depth = canonical_inverse_depth.div_scalar(f_norm);
-        println!("f_norm={}", f_norm);
         Ok(inverse_depth.clamp(1e-4, 1e4))
     }
 }
@@ -431,28 +370,5 @@ impl std::error::Error for ModelError {
         match *self {
             Self::Internal(_msg, ref err) => Some(err),
         }
-    }
-}
-
-pub fn debug_tensor<B, const D: usize>(x: Tensor<B, D>) -> ()
-where
-    B: Backend,
-{
-    let d = x.dims();
-    if x.dims().len() == 2 {
-        for (i, x) in x.to_data().to_vec::<f32>().unwrap().into_iter().enumerate() {
-            if i > 0 && i % d[0] == 0 {
-                println!();
-            }
-            print!("{} ", x);
-        }
-        println!();
-    } else if x.dims().len() == 1 {
-        for x in x.to_data().to_vec::<f32>().unwrap().into_iter() {
-            print!("{} ", x);
-        }
-        println!();
-    } else {
-        println!("??? {:?}", x.dims());
     }
 }
