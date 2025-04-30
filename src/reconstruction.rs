@@ -12,14 +12,18 @@ use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
 use crate::{depth_pro, output};
 
+pub type FloatType = burn::tensor::f16;
+pub type IntType = i32;
+
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub type EnabledBackend = burn::backend::NdArray;
 #[cfg(feature = "wgpu-spirv")]
-pub type EnabledBackend = burn::backend::Vulkan;
+pub type EnabledBackend = burn::backend::Vulkan<FloatType, IntType>;
+
 #[cfg(feature = "wgpu-metal")]
-pub type EnabledBackend = burn::backend::Metal;
+pub type EnabledBackend = burn::backend::Metal<FloatType, IntType>;
 #[cfg(feature = "cuda")]
-pub type EnabledBackend = burn::backend::Cuda;
+pub type EnabledBackend = burn::backend::Cuda<FloatType, IntType>;
 
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
@@ -150,7 +154,7 @@ where
     };
     let f_norm = img
         .focal_length_px()
-        .map(|f_px| (f_px / img.original_size.0 as f64) as f32);
+        .map(|f_px| FloatType::from_f64(f_px / img.original_size.0 as f64));
 
     let pb = ProgressReporter::new();
 
