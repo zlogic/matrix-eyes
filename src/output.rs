@@ -16,8 +16,6 @@ use image::{
 };
 use rand::Rng as _;
 
-type FloatType = crate::reconstruction::FloatType;
-
 pub struct DepthMap {
     data: Vec<f32>,
     data_width: usize,
@@ -52,11 +50,9 @@ impl DepthMap {
     {
         const CLAMP_RANGE: Range<f32> = 1.0 / CLIP_DEPTH_RANGE.end..1.0 / CLIP_DEPTH_RANGE.start;
         let [data_width, data_height] = inverse_depth.dims();
-        let data = inverse_depth.to_data().to_vec()?;
-        let data = data
-            .into_iter()
-            .map(|v: FloatType| v.to_f32().clamp(CLAMP_RANGE.start, CLAMP_RANGE.end))
-            .collect::<Vec<_>>();
+        let mut data = inverse_depth.to_data().to_vec()?;
+        data.iter_mut()
+            .for_each(|v: &mut f32| *v = v.clamp(CLAMP_RANGE.start, CLAMP_RANGE.end));
         let (original_width, original_height) = original_size;
 
         Ok(DepthMap {

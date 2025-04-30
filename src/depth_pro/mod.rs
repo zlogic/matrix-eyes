@@ -8,7 +8,7 @@ use burn::{
         conv::{Conv2d, Conv2dConfig, ConvTranspose2d, ConvTranspose2dConfig},
     },
     prelude::Backend,
-    record::{HalfPrecisionSettings, NamedMpkFileRecorder, Recorder as _, RecorderError},
+    record::{FullPrecisionSettings, NamedMpkFileRecorder, Recorder as _, RecorderError},
     tensor::{ElementConversion as _, Tensor, cast::ToElement as _},
 };
 use burn_import::pytorch::{LoadArgs, PyTorchFileRecorder};
@@ -20,8 +20,6 @@ mod decoder;
 mod encoder;
 mod fov;
 mod vit;
-
-type FloatType = crate::reconstruction::FloatType;
 
 #[derive(Module, Debug)]
 struct ConvBlock<B: Backend> {
@@ -171,11 +169,11 @@ impl DepthProModelLoader {
             .with_extension("mpk")
             .to_path_buf();
 
-        let recorder = NamedMpkFileRecorder::<HalfPrecisionSettings>::default();
+        let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::default();
         let record: M::Record = if converted_filename.exists() {
             recorder.load(converted_filename, device)?
         } else {
-            let record = PyTorchFileRecorder::<HalfPrecisionSettings>::default()
+            let record = PyTorchFileRecorder::<FullPrecisionSettings>::default()
                 .load(pytorch_load_args.clone(), device)?;
             if self.convert_checkpoints {
                 recorder.record(record, converted_filename.clone())?;
@@ -190,7 +188,7 @@ impl DepthProModelLoader {
     pub fn extract_depth<B, PL>(
         &self,
         img: Tensor<B, 4>,
-        f_norm: Option<FloatType>,
+        f_norm: Option<f32>,
         device: &B::Device,
         pl: Option<PL>,
     ) -> Result<Tensor<B, 2>, ModelError>
@@ -292,11 +290,11 @@ impl DepthProModelLoader {
                 .into_scalar()
                 .elem::<B::FloatElem>()
                 .to_f32();
-            FloatType::from_f32((0.5 * (fov_deg * std::f32::consts::PI / 180.0)).tan() / 0.5)
+            (0.5 * (fov_deg * std::f32::consts::PI / 180.0)).tan() / 0.5
         };
 
         let inverse_depth = canonical_inverse_depth.div_scalar(f_norm);
-        Ok(inverse_depth.clamp(FloatType::from_f32(1e-4), FloatType::from_f32(1e4)))
+        Ok(inverse_depth.clamp(1e-4, 1e4))
     }
 }
 
