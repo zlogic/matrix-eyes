@@ -130,18 +130,15 @@ jobs:
       fail-fast: true
       matrix:
         include:
-        #- arch: x86_64
-        #  acceleration: wgpu-spirv
-        #  features: fusion,autotune
-        #- arch: x86_64
-        #  acceleration: wgpu-spirv
-        #  features: autotune
+        - arch: x86_64
+          acceleration: wgpu-spirv
+          features: fusion,autotune
+        - arch: x86_64
+          acceleration: wgpu-spirv
+          features: autotune
         - arch: x86_64
           acceleration: wgpu-spirv
           features: fusion
-        - arch: x86_64
-          acceleration: wgpu-spirv
-          features: ""
         #- arch: x86_64
         #  acceleration: cuda
         #  features: fusion
