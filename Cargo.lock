@@ -2085,7 +2085,7 @@ dependencies = [
 
 [[package]]
 name = "matrix-eyes"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "burn",
  "burn-import",
