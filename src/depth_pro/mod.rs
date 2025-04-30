@@ -275,18 +275,6 @@ impl DepthProModelLoader {
 
             pl.update_message("forwarding head".into());
 
-            println!("Head 0 {:?} {}", features.dims(), head.len());
-            debug_tensor(
-                head[0]
-                    .conv
-                    .clone()
-                    .unwrap()
-                    .weight
-                    .val()
-                    .slice([10..15, 10..15, 0..1, 0..1])
-                    .squeeze::<3>(3)
-                    .squeeze::<2>(2),
-            );
             let features = head[0].forward(features);
             println!("Features 0 {:?}", features.dims());
             debug_tensor(
