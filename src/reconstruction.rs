@@ -14,8 +14,10 @@ use crate::{depth_pro, output};
 
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub type EnabledBackend = burn::backend::NdArray;
-#[cfg(any(feature = "wgpu", feature = "wgpu-spirv", feature = "wgpu-metal"))]
-pub type EnabledBackend = burn::backend::Wgpu;
+#[cfg(feature = "wgpu-spirv")]
+pub type EnabledBackend = burn::backend::Vulkan;
+#[cfg(feature = "wgpu-metal")]
+pub type EnabledBackend = burn::backend::Metal;
 #[cfg(feature = "cuda")]
 pub type EnabledBackend = burn::backend::Cuda;
 
@@ -24,17 +26,20 @@ pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
     burn::backend::ndarray::NdArrayDevice::Cpu
 }
 
-#[cfg(any(feature = "wgpu", feature = "wgpu-spirv", feature = "wgpu-metal"))]
+#[cfg(feature = "wgpu-spirv")]
+type WgpuApi = burn::backend::wgpu::graphics::Vulkan;
+
+#[cfg(feature = "wgpu-metal")]
+type WgpuApi = burn::backend::wgpu::graphics::Metal;
+
+#[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
 pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
     let device = burn::backend::wgpu::WgpuDevice::DefaultDevice;
     let runtime_options = burn::backend::wgpu::RuntimeOptions {
         tasks_max: 1,
         ..Default::default()
     };
-    burn::backend::wgpu::init_setup::<burn::backend::wgpu::graphics::AutoGraphicsApi>(
-        &device,
-        runtime_options,
-    );
+    burn::backend::wgpu::init_setup::<WgpuApi>(&device, runtime_options);
     device
 }
 

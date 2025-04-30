@@ -16,12 +16,11 @@ indicatif = { version = "0.17", default-features = false }
 rand = { version = "*", features = ["std", "std_rng", "small_rng"] }
 
 [features]
-default = ["wgpu", "fusion"]
+default = ["ndarray"]
 autotune = ["burn/autotune"]
 fusion = ["burn/fusion"]
 ndarray = ["burn/ndarray"]
 ndarray-accelerate = ["burn/ndarray", "burn/accelerate"]
-wgpu = ["burn/wgpu"]
 wgpu-metal = ["burn/metal"]
 wgpu-spirv = ["burn/vulkan"]
 cuda = ["burn/cuda"]
