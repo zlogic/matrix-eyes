@@ -37,7 +37,8 @@ pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
     let device = burn::backend::wgpu::WgpuDevice::DefaultDevice;
     let runtime_options = burn::backend::wgpu::RuntimeOptions {
         tasks_max: 1,
-        memory_config: burn::backend::wgpu::MemoryConfiguration::ExclusivePages,
+        // ExclusivePages reduces memory usage on Apple GPUs.
+        memory_config: burn::backend::wgpu::MemoryConfiguration::default(),
     };
     burn::backend::wgpu::init_setup::<WgpuApi>(&device, runtime_options);
     device
