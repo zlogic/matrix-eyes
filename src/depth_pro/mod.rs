@@ -4,12 +4,12 @@ use burn::{
     config::Config,
     module::Module,
     nn::{
-        conv::{Conv2d, Conv2dConfig, ConvTranspose2d, ConvTranspose2dConfig},
         PaddingConfig2d, Relu,
+        conv::{Conv2d, Conv2dConfig, ConvTranspose2d, ConvTranspose2dConfig},
     },
     prelude::Backend,
-    record::{HalfPrecisionSettings, NamedMpkFileRecorder, Recorder as _, RecorderError},
-    tensor::{cast::ToElement as _, ElementConversion as _, Tensor},
+    record::{FullPrecisionSettings, NamedMpkFileRecorder, Recorder as _, RecorderError},
+    tensor::{ElementConversion as _, Tensor, cast::ToElement as _},
 };
 use burn_import::pytorch::{LoadArgs, PyTorchFileRecorder};
 use decoder::{MultiresConvDecoder, MultiresConvDecoderConfig};
@@ -169,11 +169,11 @@ impl DepthProModelLoader {
             .with_extension("mpk")
             .to_path_buf();
 
-        let recorder = NamedMpkFileRecorder::<HalfPrecisionSettings>::default();
+        let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::default();
         let record: M::Record = if converted_filename.exists() {
             recorder.load(converted_filename, device)?
         } else {
-            let record = PyTorchFileRecorder::<HalfPrecisionSettings>::default()
+            let record = PyTorchFileRecorder::<FullPrecisionSettings>::default()
                 .load(pytorch_load_args.clone(), device)?;
             if self.convert_checkpoints {
                 recorder.record(record, converted_filename.clone())?;
