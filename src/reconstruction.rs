@@ -144,7 +144,7 @@ where
     let img = match SourceImage::<B>::load(source_path, focal_length_35mm, device) {
         Ok(img) => img,
         Err(err) => {
-            eprintln!("Failed to load source image: {}", err);
+            eprintln!("Failed to load source image: {err}");
             return Err(err);
         }
     };
@@ -158,7 +158,7 @@ where
     {
         Ok(inverse_depth) => inverse_depth,
         Err(err) => {
-            eprintln!("Failed to process image: {}", err);
+            eprintln!("Failed to process image: {err}");
             return Err(err.into());
         }
     };
@@ -167,7 +167,7 @@ where
         Ok(depth_map) => depth_map,
         Err(err) => {
             let err = err.into();
-            eprintln!("Failed to read depth data from device: {}", err);
+            eprintln!("Failed to read depth data from device: {err}");
             return Err(err);
         }
     };
@@ -175,7 +175,7 @@ where
         Ok(()) => Ok(()),
         Err(err) => {
             let err = err.into();
-            eprintln!("Failed to output result: {}", err);
+            eprintln!("Failed to output result: {err}");
             Err(err)
         }
     }
@@ -229,16 +229,16 @@ impl fmt::Display for ReconstructionError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Self::Internal(msg) => f.write_str(msg),
-            Self::Model(ref err) => write!(f, "Model error: {}", err),
-            Self::Output(ref err) => write!(f, "Output error: {}", err),
-            Self::Image(ref err) => write!(f, "Image error: {}", err),
-            Self::Io(ref err) => write!(f, "IO error: {}", err),
-            Self::Exif(ref err) => write!(f, "EXIF error: {}", err),
+            Self::Model(ref err) => write!(f, "Model error: {err}"),
+            Self::Output(ref err) => write!(f, "Output error: {err}"),
+            Self::Image(ref err) => write!(f, "Image error: {err}"),
+            Self::Io(ref err) => write!(f, "IO error: {err}"),
+            Self::Exif(ref err) => write!(f, "EXIF error: {err}"),
             Self::BurnData(burn::tensor::DataError::CastError(ref err)) => {
-                write!(f, "Burn data cast error: {}", err)
+                write!(f, "Burn data cast error: {err}")
             }
             Self::BurnData(burn::tensor::DataError::TypeMismatch(ref str)) => {
-                write!(f, "Burn data type mismatch: {}", str)
+                write!(f, "Burn data type mismatch: {str}")
             }
         }
     }

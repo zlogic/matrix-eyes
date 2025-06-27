@@ -54,25 +54,22 @@ impl Args {
                     args.convert_checkpoints = true;
                     continue;
                 } else if arg == "--help" {
-                    println!("{}", USAGE_INSTRUCTIONS);
+                    println!("{USAGE_INSTRUCTIONS}");
                     exit(0);
                 }
                 let (name, value) = if let Some(arg) = arg.split_once('=') {
                     arg
                 } else {
-                    eprintln!("Option flag {} has no value", arg);
-                    println!("{}", USAGE_INSTRUCTIONS);
+                    eprintln!("Option flag {arg} has no value");
+                    println!("{USAGE_INSTRUCTIONS}");
                     exit(2);
                 };
                 if name == "--focal-length" {
                     args.focal_length = match value.parse() {
                         Ok(focal_length) => Some(focal_length),
                         Err(err) => {
-                            eprintln!(
-                                "Argument {} has an unsupported value {}: {}",
-                                name, value, err
-                            );
-                            println!("{}", USAGE_INSTRUCTIONS);
+                            eprintln!("Argument {name} has an unsupported value {value}: {err}");
+                            println!("{USAGE_INSTRUCTIONS}");
                             exit(2)
                         }
                     };
@@ -81,8 +78,8 @@ impl Args {
                         "depthmap" => ImageOutputFormat::DepthMap,
                         "stereogram" => default_stereogram,
                         _ => {
-                            eprintln!("Unsupported output format {}", value);
-                            println!("{}", USAGE_INSTRUCTIONS);
+                            eprintln!("Unsupported output format {value}");
+                            println!("{USAGE_INSTRUCTIONS}");
                             exit(2)
                         }
                     };
@@ -90,11 +87,8 @@ impl Args {
                     resize_scale = match value.parse() {
                         Ok(resize_scale) => Some(resize_scale),
                         Err(err) => {
-                            eprintln!(
-                                "Argument {} has an unsupported value {}: {}",
-                                name, value, err
-                            );
-                            println!("{}", USAGE_INSTRUCTIONS);
+                            eprintln!("Argument {name} has an unsupported value {value}: {err}");
+                            println!("{USAGE_INSTRUCTIONS}");
                             exit(2)
                         }
                     };
@@ -102,11 +96,8 @@ impl Args {
                     stereo_amplitude = match value.parse() {
                         Ok(stereo_amplitude) => stereo_amplitude,
                         Err(err) => {
-                            eprintln!(
-                                "Argument {} has an unsupported value {}: {}",
-                                name, value, err
-                            );
-                            println!("{}", USAGE_INSTRUCTIONS);
+                            eprintln!("Argument {name} has an unsupported value {value}: {err}");
+                            println!("{USAGE_INSTRUCTIONS}");
                             exit(2)
                         }
                     };
@@ -116,23 +107,23 @@ impl Args {
                         "vertex-colors" => args.vertex_mode = VertexMode::Color,
                         "texture-coordinates" => args.vertex_mode = VertexMode::Texture,
                         _ => {
-                            eprintln!("Unsupported mesh vertex output mode {}", value);
-                            println!("{}", USAGE_INSTRUCTIONS);
+                            eprintln!("Unsupported mesh vertex output mode {value}");
+                            println!("{USAGE_INSTRUCTIONS}");
                             exit(2);
                         }
                     };
                 } else if name == "--checkpoint-path" {
                     args.checkpoint_path = value.to_string();
                 } else {
-                    eprintln!("Unsupported argument {}", arg);
+                    eprintln!("Unsupported argument {arg}");
                 }
             } else if args.img_src.is_empty() {
                 args.img_src = arg;
             } else if args.img_out.is_empty() {
                 args.img_out = arg
             } else {
-                eprintln!("Unexpected argument {}", arg);
-                println!("{}", USAGE_INSTRUCTIONS);
+                eprintln!("Unexpected argument {arg}");
+                println!("{USAGE_INSTRUCTIONS}");
                 exit(2)
             }
         }
@@ -143,11 +134,11 @@ impl Args {
 
         if args.img_src.is_empty() {
             eprintln!("No source image provided");
-            println!("{}", USAGE_INSTRUCTIONS);
+            println!("{USAGE_INSTRUCTIONS}");
             exit(2);
         } else if args.img_out.is_empty() {
             eprintln!("No output image provided");
-            println!("{}", USAGE_INSTRUCTIONS);
+            println!("{USAGE_INSTRUCTIONS}");
             exit(2);
         }
 
@@ -176,7 +167,7 @@ fn main() {
         args.output_format,
         args.vertex_mode,
     ) {
-        println!("Reconstruction failed: {}", err);
+        println!("Reconstruction failed: {err}");
         exit(1);
     }
 }

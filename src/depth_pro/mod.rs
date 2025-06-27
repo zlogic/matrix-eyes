@@ -163,7 +163,7 @@ impl DepthProModelLoader {
                     .file_stem()
                     .and_then(|filename| filename.to_str())
                     .map_or(suffix.to_string(), |filename| {
-                        format!("{}-{}", filename, suffix)
+                        format!("{filename}-{suffix}")
                     }),
             )
             .with_extension("mpk")
@@ -360,7 +360,7 @@ pub enum ModelError {
 impl fmt::Display for ModelError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Self::Internal(msg, ref err) => write!(f, "Model error: {}: {}", msg, err),
+            Self::Internal(msg, ref err) => write!(f, "Model error: {msg}: {err}"),
         }
     }
 }

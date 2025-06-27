@@ -416,7 +416,7 @@ impl MeshWriter for PlyWriter {
         writeln!(w, "ply")?;
         writeln!(w, "format binary_big_endian 1.0")?;
         writeln!(w, "comment Matrix Eyes 3D surface")?;
-        writeln!(w, "element vertex {}", nvertices)?;
+        writeln!(w, "element vertex {nvertices}")?;
         writeln!(w, "property double x")?;
         writeln!(w, "property double y")?;
         writeln!(w, "property double z")?;
@@ -430,7 +430,7 @@ impl MeshWriter for PlyWriter {
                 writeln!(w, "property uchar blue")?;
             }
         }
-        writeln!(w, "element face {}", nfaces)?;
+        writeln!(w, "element face {nfaces}")?;
         writeln!(w, "property list uchar int vertex_indices")?;
         writeln!(w, "end_header")
     }
@@ -528,7 +528,7 @@ impl ObjWriter {
 
         let destination_path = Path::new(&self.path).parent().unwrap();
         let mut w = BufWriter::new(File::create(
-            destination_path.join(format!("{}.mtl", out_filename)),
+            destination_path.join(format!("{out_filename}.mtl")),
         )?);
 
         writeln!(w, "newmtl Textured")?;
@@ -554,7 +554,7 @@ impl MeshWriter for ObjWriter {
         match self.vertex_mode {
             VertexMode::Plain | VertexMode::Color => {}
             VertexMode::Texture => {
-                writeln!(w, "mtllib {}.mtl", out_filename)?;
+                writeln!(w, "mtllib {out_filename}.mtl")?;
                 writeln!(w, "usemtl Textured")?;
             }
         }
@@ -572,7 +572,7 @@ impl MeshWriter for ObjWriter {
         let w = &mut self.buffer;
 
         let (x, y, z) = (x as f64, -y as f64, -z as f64);
-        write!(w, "v {} {} {}", x, y, z)?;
+        write!(w, "v {x} {y} {z}")?;
         if let Some(color) = color {
             write!(
                 w,
@@ -606,10 +606,10 @@ impl MeshWriter for ObjWriter {
             let index = index + 1;
             match self.vertex_mode {
                 VertexMode::Plain | VertexMode::Color => {
-                    write!(self.buffer, " {}", index)?;
+                    write!(self.buffer, " {index}")?;
                 }
                 VertexMode::Texture => {
-                    write!(self.buffer, " {}/{}", index, index)?;
+                    write!(self.buffer, " {index}/{index}")?;
                 }
             }
         }
