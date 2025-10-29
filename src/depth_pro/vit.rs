@@ -66,9 +66,9 @@ impl<B: Backend> Attention<B> {
             .split(1, 0)
             .try_into()
             .expect("qkv should have 3 items in dimension 0");
-        let q = q.squeeze(0).mul_scalar(self.scale);
-        let k = k.squeeze::<4>(0);
-        let v = v.squeeze::<4>(0);
+        let q = q.squeeze_dim(0).mul_scalar(self.scale);
+        let k = k.squeeze_dim::<4>(0);
+        let v = v.squeeze_dim::<4>(0);
         let attn = softmax(q.matmul(k.swap_dims(3, 2)), 3);
         let attn = attn.matmul(v.clone()).swap_dims(1, 2).reshape([b, n, c]);
         self.proj.forward(attn)

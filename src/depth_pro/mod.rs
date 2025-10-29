@@ -270,7 +270,9 @@ impl DepthProModelLoader {
             Relu::new().forward(features)
         };
 
-        let canonical_inverse_depth = canonical_inverse_depth.squeeze::<3>(0).squeeze::<2>(0);
+        let canonical_inverse_depth = canonical_inverse_depth
+            .squeeze_dim::<3>(0)
+            .squeeze_dim::<2>(0);
 
         let f_norm = if let Some(f_norm) = f_norm {
             f_norm
