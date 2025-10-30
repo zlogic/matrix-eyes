@@ -50,7 +50,7 @@ The following versions are available:
   * wgpu-fusion (wgpu version with fusion enabled, uses 12+ GB when running, runs faster than fusion-autotune)
   * ndarray-accelerate (slow, CPU-only version that might be using AMX instructions)
 
-For the Windows `cuda` version, download the [Burn CUDA libraries](https://github.com/zlogic/matrix-eyes/releases/download/0.1.1/cuda-Windows-x86_64-burn.zip) artifact and extract its contents into the same directory. Set the `CUDA_PATH` environment variable to the path where you've extracted matrix-eyes and the Burn CUDA libraries artifact.
+For the Windows `cuda` version, download the [Burn CUDA libraries](https://github.com/zlogic/matrix-eyes/releases/download/0.1.4/cuda-Windows-x86_64-burn.zip) artifact and extract its contents into the same directory. Set the `CUDA_PATH` environment variable to the path where you've extracted matrix-eyes and the Burn CUDA libraries artifact.
 
 Download the model checkpoints:
 
