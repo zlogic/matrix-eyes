@@ -2,9 +2,9 @@ name: Cargo build
 
 on:
   push:
-    branches: [ "fp16" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "fp16" ]
+    branches: [ "main" ]
 
 jobs:
   validate:
@@ -131,13 +131,16 @@ jobs:
         include:
         - arch: x86_64
           acceleration: wgpu-spirv
-          features: fusion,autotune,f16
+          features: fusion,autotune
         - arch: x86_64
           acceleration: wgpu-spirv
-          features: autotune,f16
+          features: autotune
         - arch: x86_64
           acceleration: wgpu-spirv
-          features: fusion,f16
+          features: fusion
+        - arch: x86_64
+          acceleration: cuda
+          features: fusion
         - arch: x86_64
           acceleration: cuda
           features: fusion,bf16
