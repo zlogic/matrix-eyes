@@ -163,14 +163,15 @@ where
         }
     };
 
-    let depth_map = match output::DepthMap::new(inverse_depth, img.original_size) {
-        Ok(depth_map) => depth_map,
-        Err(err) => {
-            let err = err.into();
-            eprintln!("Failed to read depth data from device: {err}");
-            return Err(err);
-        }
-    };
+    let depth_map =
+        match output::DepthMap::new::<B, burn::tensor::f16>(inverse_depth, img.original_size) {
+            Ok(depth_map) => depth_map,
+            Err(err) => {
+                let err = err.into();
+                eprintln!("Failed to read depth data from device: {err}");
+                return Err(err);
+            }
+        };
     match depth_map.output_image(destination_path, source_path, image_format, vertex_mode) {
         Ok(()) => Ok(()),
         Err(err) => {
