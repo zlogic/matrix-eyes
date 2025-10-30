@@ -134,10 +134,16 @@ jobs:
           features: fusion,autotune
         - arch: x86_64
           acceleration: wgpu-spirv
+          features: fusion,autotune,f16
+        - arch: x86_64
+          acceleration: wgpu-spirv
           features: autotune
         - arch: x86_64
           acceleration: wgpu-spirv
           features: fusion
+        - arch: x86_64
+          acceleration: wgpu-spirv
+          features: fusion,f16
         - arch: x86_64
           acceleration: cuda
           features: fusion
