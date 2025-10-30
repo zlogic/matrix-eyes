@@ -13,15 +13,21 @@ use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use crate::{depth_pro, output};
 
 #[cfg(feature = "f16")]
+pub type FloatType = burn::tensor::f16;
+#[cfg(feature = "bf16")]
 pub type FloatType = burn::tensor::bf16;
-#[cfg(not(feature = "f16"))]
+#[cfg(not(any(feature = "f16", feature = "bf16")))]
 pub type FloatType = f32;
 
 #[cfg(feature = "f16")]
 const fn from_f32(value: f32) -> FloatType {
+    burn::tensor::f16::from_f32_const(value)
+}
+#[cfg(feature = "bf16")]
+const fn from_f32(value: f32) -> FloatType {
     burn::tensor::bf16::from_f32_const(value)
 }
-#[cfg(not(feature = "f16"))]
+#[cfg(not(any(feature = "f16", feature = "bf16")))]
 const fn from_f32(value: f32) -> FloatType {
     value
 }

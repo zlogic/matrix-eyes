@@ -140,7 +140,7 @@ jobs:
           features: fusion,f16
         - arch: x86_64
           acceleration: cuda
-          features: fusion,f16
+          features: fusion,bf16
         - arch: x86_64
           acceleration: ndarray
         - arch: aarch64
