@@ -227,7 +227,7 @@ jobs:
 
     - name: Upload CUDA
       uses: actions/upload-artifact@v4
-      if: false # matrix.acceleration == 'cuda'
+      if: matrix.acceleration == 'cuda'
       with:
         name: cuda-${{ runner.os }}-${{ matrix.arch }}
         path: cuda-*.zip
