@@ -131,16 +131,16 @@ jobs:
         include:
         - arch: x86_64
           acceleration: wgpu-spirv
-          features: fusion,autotune
+          features: fusion,autotune,f16
         - arch: x86_64
           acceleration: wgpu-spirv
-          features: autotune
+          features: autotune,f16
         - arch: x86_64
           acceleration: wgpu-spirv
-          features: fusion
+          features: fusion,f16
         - arch: x86_64
           acceleration: cuda
-          features: fusion
+          features: fusion,f16
         - arch: x86_64
           acceleration: ndarray
         - arch: aarch64

@@ -12,14 +12,28 @@ use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
 use crate::{depth_pro, output};
 
+#[cfg(feature = "f16")]
+pub type FloatType = burn::tensor::bf16;
+#[cfg(not(feature = "f16"))]
+pub type FloatType = f32;
+
+#[cfg(feature = "f16")]
+const fn from_f32(value: f32) -> FloatType {
+    burn::tensor::bf16::from_f32_const(value)
+}
+#[cfg(not(feature = "f16"))]
+const fn from_f32(value: f32) -> FloatType {
+    value
+}
+
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub type EnabledBackend = burn::backend::NdArray;
 #[cfg(feature = "wgpu-spirv")]
-pub type EnabledBackend = burn::backend::Vulkan<burn::tensor::f16>;
+pub type EnabledBackend = burn::backend::Vulkan<FloatType>;
 #[cfg(feature = "wgpu-metal")]
-pub type EnabledBackend = burn::backend::Metal;
+pub type EnabledBackend = burn::backend::Metal<FloatType>;
 #[cfg(feature = "cuda")]
-pub type EnabledBackend = burn::backend::Cuda<burn::tensor::f16>;
+pub type EnabledBackend = burn::backend::Cuda<FloatType>;
 
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
@@ -67,8 +81,8 @@ where
         device: &B::Device,
     ) -> Result<SourceImage<B>, ReconstructionError> {
         const IMG_SIZE: usize = depth_pro::IMG_SIZE;
-        const MEAN: [f32; 3] = [0.5, 0.5, 0.5];
-        const STD: [f32; 3] = [0.5, 0.5, 0.5];
+        const MEAN: [FloatType; 3] = [from_f32(0.5), from_f32(0.5), from_f32(0.5)];
+        const STD: [FloatType; 3] = [from_f32(0.5), from_f32(0.5), from_f32(0.5)];
         let mut decoder = ImageReader::open(path)?.into_decoder()?;
         let focal_length_35mm = if let Some(focal_length) = focal_length_35mm {
             Some(focal_length)
@@ -163,15 +177,14 @@ where
         }
     };
 
-    let depth_map =
-        match output::DepthMap::new::<B, burn::tensor::f16>(inverse_depth, img.original_size) {
-            Ok(depth_map) => depth_map,
-            Err(err) => {
-                let err = err.into();
-                eprintln!("Failed to read depth data from device: {err}");
-                return Err(err);
-            }
-        };
+    let depth_map = match output::DepthMap::new::<B, FloatType>(inverse_depth, img.original_size) {
+        Ok(depth_map) => depth_map,
+        Err(err) => {
+            let err = err.into();
+            eprintln!("Failed to read depth data from device: {err}");
+            return Err(err);
+        }
+    };
     match depth_map.output_image(destination_path, source_path, image_format, vertex_mode) {
         Ok(()) => Ok(()),
         Err(err) => {

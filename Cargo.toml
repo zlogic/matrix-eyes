@@ -24,6 +24,7 @@ ndarray-accelerate = ["burn/ndarray", "burn/accelerate"]
 wgpu-metal = ["burn/metal"]
 wgpu-spirv = ["burn/vulkan"]
 cuda = ["burn/cuda"]
+f16 = []
 
 [profile.release]
 strip = true
