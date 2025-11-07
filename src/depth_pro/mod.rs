@@ -119,6 +119,19 @@ pub struct DepthProModelLoader {
     convert_checkpoints: bool,
 }
 
+fn print_range<B, const D: usize>(v: &Tensor<B, D>)
+where
+    B: Backend,
+{
+    v.to_data()
+        .into_vec::<f32>()
+        .unwrap()
+        .iter()
+        .skip(1024 * 512 + 512)
+        .take(16)
+        .for_each(|v| println!("v={v}"))
+}
+
 impl DepthProModelLoader {
     pub fn new(checkpoint_path: &str, convert_checkpoints: bool) -> DepthProModelLoader {
         DepthProModelLoader {
