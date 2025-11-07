@@ -19,13 +19,9 @@ pub type FloatType = burn::tensor::bf16;
 #[cfg(not(any(feature = "f16", feature = "bf16")))]
 pub type FloatType = f32;
 
-#[cfg(feature = "f16")]
+#[cfg(any(feature = "f16", feature = "bf16"))]
 const fn from_f32(value: f32) -> FloatType {
-    burn::tensor::f16::from_f32_const(value)
-}
-#[cfg(feature = "bf16")]
-const fn from_f32(value: f32) -> FloatType {
-    burn::tensor::bf16::from_f32_const(value)
+    FloatType::from_f32_const(value)
 }
 #[cfg(not(any(feature = "f16", feature = "bf16")))]
 const fn from_f32(value: f32) -> FloatType {
@@ -57,7 +53,7 @@ pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
     let device = burn::backend::wgpu::WgpuDevice::DefaultDevice;
     let runtime_options = burn::backend::wgpu::RuntimeOptions {
         tasks_max: 1,
-        memory_config: burn::backend::wgpu::MemoryConfiguration::SubSlices,
+        memory_config: Default::default(),
     };
     burn::backend::wgpu::init_setup::<WgpuApi>(&device, runtime_options);
     device
