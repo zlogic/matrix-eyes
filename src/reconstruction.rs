@@ -30,6 +30,8 @@ const fn from_f32(value: f32) -> FloatType {
 
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub type EnabledBackend = burn::backend::NdArray;
+#[cfg(feature = "cpu")]
+pub type EnabledBackend = burn::backend::Cpu;
 #[cfg(feature = "wgpu-spirv")]
 pub type EnabledBackend = burn::backend::Vulkan<FloatType>;
 #[cfg(feature = "wgpu-metal")]
@@ -40,6 +42,11 @@ pub type EnabledBackend = burn::backend::Cuda<FloatType>;
 #[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
 pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
     burn::backend::ndarray::NdArrayDevice::Cpu
+}
+
+#[cfg(feature = "cpu")]
+pub fn init_device() -> burn::backend::cpu::CpuDevice {
+    burn::backend::cpu::CpuDevice
 }
 
 #[cfg(feature = "wgpu-spirv")]
