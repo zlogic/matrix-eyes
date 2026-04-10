@@ -186,11 +186,11 @@ where
         }
     };
 
-    let depth_map = match output::DepthMap::new::<B, FloatType>(inverse_depth, img.original_size) {
+    let depth_map = match output::DepthMap::new::<B>(inverse_depth, img.original_size) {
         Ok(depth_map) => depth_map,
         Err(err) => {
-            let err = err.into();
             eprintln!("Failed to read depth data from device: {err}");
+            let err = err.into();
             return Err(err);
         }
     };

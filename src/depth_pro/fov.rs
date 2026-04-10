@@ -100,17 +100,17 @@ impl FOVNetworkConfig {
 
         let fov_head0 = Conv2dConfig::new([num_features, num_features / 2], [3, 3])
             .with_stride([2, 2])
-            .with_padding(PaddingConfig2d::Explicit(1, 1))
+            .with_padding(PaddingConfig2d::Explicit(1, 1, 1, 1))
             .init(device);
 
         let fov_head = vec![
             Conv2dConfig::new([num_features / 2, num_features / 4], [3, 3])
                 .with_stride([2, 2])
-                .with_padding(PaddingConfig2d::Explicit(1, 1))
+                .with_padding(PaddingConfig2d::Explicit(1, 1, 1, 1))
                 .init(device),
             Conv2dConfig::new([num_features / 4, num_features / 8], [3, 3])
                 .with_stride([2, 2])
-                .with_padding(PaddingConfig2d::Explicit(1, 1))
+                .with_padding(PaddingConfig2d::Explicit(1, 1, 1, 1))
                 .init(device),
             Conv2dConfig::new([num_features / 8, 1], [6, 6]).init(device),
         ];

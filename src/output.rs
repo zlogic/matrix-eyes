@@ -41,20 +41,19 @@ const POLYGON_DEPTH_THRESHOLD: f32 = 1.025;
 const CLIP_DEPTH_RANGE: Range<f32> = 0.1..250.0;
 
 impl DepthMap {
-    pub fn new<B, F>(
+    pub fn new<B>(
         inverse_depth: Tensor<B, 2>,
         original_size: (u32, u32),
     ) -> Result<DepthMap, DataError>
     where
         B: Backend,
-        F: burn::tensor::Element,
     {
         const CLAMP_RANGE: Range<f32> = 1.0 / CLIP_DEPTH_RANGE.end..1.0 / CLIP_DEPTH_RANGE.start;
         let [data_width, data_height] = inverse_depth.dims();
-        let data = inverse_depth.into_data().into_vec::<F>()?;
-        let data = data
-            .into_iter()
-            .map(|v| v.elem::<f32>().clamp(CLAMP_RANGE.start, CLAMP_RANGE.end))
+        let data = inverse_depth
+            .into_data()
+            .iter::<f32>()
+            .map(|v| v.clamp(CLAMP_RANGE.start, CLAMP_RANGE.end))
             .collect::<Vec<_>>();
         let (original_width, original_height) = original_size;
 

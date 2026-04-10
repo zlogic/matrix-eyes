@@ -5,11 +5,11 @@ edition = "2024"
 authors = ["Dmitry Zolotukhin <zlogic@gmail.com>"]
 repository = "https://github.com/zlogic/matrix-eyes"
 license = "Apache-2.0"
-rust-version = "1.89"
+rust-version = "1.92"
 
 [dependencies]
-burn = { version = "0.20", default-features = false, features = ["std"] }
-burn-import = { version = "0.20", default-features = false, features = ["pytorch"] }
+burn = { version = "0.21.0-pre.3", default-features = false, features = ["std", "store"] }
+burn-store = { version = "0.21.0-pre.3", default-features = false, features = ["std", "pytorch"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 kamadak-exif = { version = "0.6", default-features = false }
 indicatif = { version = "0.18", default-features = false }

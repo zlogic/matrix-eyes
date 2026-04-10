@@ -1,4 +1,4 @@
-use std::{error, fmt, ops::Range, path::Path, sync::Arc};
+use std::{error, fmt, ops::Range, path::Path, rc::Rc, sync::Arc};
 
 use burn::{
     config::Config,
@@ -8,10 +8,13 @@ use burn::{
         conv::{Conv2d, Conv2dConfig, ConvTranspose2d, ConvTranspose2dConfig},
     },
     prelude::Backend,
-    record::{HalfPrecisionSettings, NamedMpkFileRecorder, Recorder as _, RecorderError},
-    tensor::{ElementConversion as _, Tensor, cast::ToElement as _},
+    record::{HalfPrecisionSettings, NamedMpkFileRecorder, Recorder as _},
+    store::{
+        Applier, KeyRemapper, ModuleAdapter, ModuleStore, PyTorchToBurnAdapter, TensorSnapshot,
+        pytorch::PytorchStore,
+    },
+    tensor::{DType, ElementConversion as _, Tensor, cast::ToElement as _},
 };
-use burn_import::pytorch::{LoadArgs, PyTorchFileRecorder};
 use decoder::{MultiresConvDecoder, MultiresConvDecoderConfig};
 use encoder::{DepthProEncoder, DepthProEncoderConfig};
 use fov::{FOVNetwork, FOVNetworkConfig};
@@ -60,7 +63,7 @@ impl HeadConfig {
             ConvBlock {
                 conv: Some(
                     Conv2dConfig::new([self.dim_decoder, self.dim_decoder / 2], [3, 3])
-                        .with_padding(PaddingConfig2d::Explicit(1, 1))
+                        .with_padding(PaddingConfig2d::Explicit(1, 1, 1, 1))
                         .init(device),
                 ),
                 conv_tr: None,
@@ -79,7 +82,7 @@ impl HeadConfig {
             ConvBlock {
                 conv: Some(
                     Conv2dConfig::new([self.dim_decoder / 2, self.last_dims[0]], [3, 3])
-                        .with_padding(PaddingConfig2d::Explicit(1, 1))
+                        .with_padding(PaddingConfig2d::Explicit(1, 1, 1, 1))
                         .init(device),
                 ),
                 conv_tr: None,
@@ -119,6 +122,47 @@ pub struct DepthProModelLoader {
     convert_checkpoints: bool,
 }
 
+#[derive(Clone)]
+struct HalfPrecisionAdapter {
+    target_dtype: DType,
+}
+
+impl HalfPrecisionAdapter {
+    fn new(target_dtype: DType) -> Self {
+        HalfPrecisionAdapter { target_dtype }
+    }
+}
+
+impl ModuleAdapter for HalfPrecisionAdapter {
+    fn adapt(&self, snapshot: &TensorSnapshot) -> TensorSnapshot {
+        // This is a custom version of Burn's HalfPrecisionAdapter.
+        // It targets the actual DType instead of swapping between f32 and f16.
+        let target_dtype = self.target_dtype;
+        if target_dtype == snapshot.dtype {
+            return snapshot.clone();
+        }
+        let original_data_fn = snapshot.clone_data_fn();
+
+        let cast_data_fn = Rc::new(move || {
+            let data = original_data_fn()?;
+            Ok(data.convert_dtype(target_dtype))
+        });
+
+        TensorSnapshot::from_closure(
+            cast_data_fn,
+            self.target_dtype,
+            snapshot.shape.clone(),
+            snapshot.path_stack.clone().unwrap_or_default(),
+            snapshot.container_stack.clone().unwrap_or_default(),
+            snapshot.tensor_id.unwrap_or_default(),
+        )
+    }
+
+    fn clone_box(&self) -> Box<dyn ModuleAdapter> {
+        Box::new(self.clone())
+    }
+}
+
 impl DepthProModelLoader {
     pub fn new(checkpoint_path: &str, convert_checkpoints: bool) -> DepthProModelLoader {
         DepthProModelLoader {
@@ -132,30 +176,38 @@ impl DepthProModelLoader {
         model: M,
         suffix: &str,
         device: &B::Device,
-    ) -> Result<M, RecorderError>
+        dtype: DType,
+    ) -> Result<M, LoaderError>
     where
         M: Module<B>,
         B: Backend,
     {
-        let pytorch_load_args = LoadArgs::new(self.checkpoint_path.as_str().into())
+        let pytorch_remapper = KeyRemapper::new()
             // Label upsampling blocks to guide enum deserialization.
-            .with_key_remap(
+            .add_pattern(
                 "^(encoder\\.upsample[^.]+)\\.0\\.weight",
                 "$1.0.conv.weight",
             )
-            .with_key_remap(
+            .map_err(|_| LoaderError::Regex)?
+            .add_pattern(
                 "^(encoder\\.upsample[^.]+)\\.([0-9]+)\\.weight",
                 "$1.$2.conv_tr.weight",
             )
+            .map_err(|_| LoaderError::Regex)?
             // Label head blocks to guide enum deserialization.
-            .with_key_remap("^head\\.0\\.(.+)", "head.0.conv.$1")
-            .with_key_remap("^head\\.1\\.(.+)", "head.1.conv_tr.$1")
-            .with_key_remap("^head\\.2\\.(.+)", "head.2.conv.$1")
-            .with_key_remap("^head\\.4\\.(.+)", "head.4.conv.$1")
+            .add_pattern("^head\\.0\\.(.+)", "head.0.conv.$1")
+            .map_err(|_| LoaderError::Regex)?
+            .add_pattern("^head\\.1\\.(.+)", "head.1.conv_tr.$1")
+            .map_err(|_| LoaderError::Regex)?
+            .add_pattern("^head\\.2\\.(.+)", "head.2.conv.$1")
+            .map_err(|_| LoaderError::Regex)?
+            .add_pattern("^head\\.4\\.(.+)", "head.4.conv.$1")
+            .map_err(|_| LoaderError::Regex)?
             // Label fov encoder to avoid using vec/enums.
-            .with_key_remap("^fov.encoder\\.0\\.(.+)", "fov.encoder.fov_encoder.$1")
-            .with_key_remap("^fov.encoder\\.1\\.(.+)", "fov.encoder.linear.$1");
-
+            .add_pattern("^fov.encoder\\.0\\.(.+)", "fov.encoder.fov_encoder.$1")
+            .map_err(|_| LoaderError::Regex)?
+            .add_pattern("^fov.encoder\\.1\\.(.+)", "fov.encoder.linear.$1")
+            .map_err(|_| LoaderError::Regex)?;
         let converted_filename = Path::new(&self.checkpoint_path);
         let converted_filename = converted_filename
             .with_file_name(
@@ -170,19 +222,30 @@ impl DepthProModelLoader {
             .to_path_buf();
 
         let recorder = NamedMpkFileRecorder::<HalfPrecisionSettings>::default();
-        let record: M::Record = if converted_filename.exists() {
-            recorder.load(converted_filename, device)?
+        if converted_filename.exists() {
+            let record = recorder.load(converted_filename, device)?;
+            Ok(model.load_record(record))
         } else {
-            let record = PyTorchFileRecorder::<HalfPrecisionSettings>::default()
-                .load(pytorch_load_args.clone(), device)?;
-            if self.convert_checkpoints {
-                recorder.record(record, converted_filename.clone())?;
-                recorder.load(converted_filename, device)?
-            } else {
-                record
+            let mut store =
+                PytorchStore::from_file(self.checkpoint_path.as_str()).remap(pytorch_remapper);
+            // This is messy because PytorchStore doesn't have an easy way to convert f16 into f32.
+            let snapshots: Vec<TensorSnapshot> =
+                store.get_all_snapshots()?.values().cloned().collect();
+            let adapter = PyTorchToBurnAdapter.chain(HalfPrecisionAdapter::new(dtype));
+            let mut applier = Applier::new(snapshots, None, Some(Box::new(adapter)), true);
+            let model = model.map(&mut applier);
+            let result = applier.into_result();
+            if !result.errors.is_empty() {
+                return Err(LoaderError::RecorderErrors(result.errors));
             }
-        };
-        Ok(model.load_record(record))
+            if !result.missing.is_empty() {
+                return Err(LoaderError::RecorderMissing(result.missing));
+            }
+            if self.convert_checkpoints {
+                recorder.record(model.clone().into_record(), converted_filename)?;
+            }
+            Ok(model)
+        }
     }
 
     pub fn extract_depth<B, PL>(
@@ -217,7 +280,7 @@ impl DepthProModelLoader {
             let encoder = PartEncoder { encoder };
             pl.update_message("loading encoder model".into());
             let encoder = self
-                .load_record(encoder, "encoder", device)
+                .load_record(encoder, "encoder", device, img.dtype())
                 .map_err(|err| ModelError::Internal("Failed to load depth model", err))?
                 .encoder;
             pl.report_status(1.0);
@@ -233,7 +296,7 @@ impl DepthProModelLoader {
             let decoder = PartDecoder { decoder };
             pl.update_message("loading decoder model".into());
             let decoder = self
-                .load_record(decoder, "decoder", device)
+                .load_record(decoder, "decoder", device, img.dtype())
                 .map_err(|err| ModelError::Internal("Failed to load decoder model", err))?
                 .decoder;
             pl.report_status(1.0);
@@ -250,7 +313,7 @@ impl DepthProModelLoader {
             let head = PartHead { head };
             pl.update_message("loading head".into());
             let head = self
-                .load_record(head, "head", device)
+                .load_record(head, "head", device, img.dtype())
                 .map_err(|err| ModelError::Internal("Failed to load head model", err))?
                 .head;
             pl.report_status(0.05);
@@ -282,7 +345,7 @@ impl DepthProModelLoader {
             let (pl, pl_fov) = pl_fov.split_range(0.05);
             pl.update_message("loading fov".into());
             let fov = self
-                .load_record(fov, "fov", device)
+                .load_record(fov, "fov", device, img.dtype())
                 .map_err(|err| ModelError::Internal("Failed to load fov model", err))?
                 .fov;
             pl.report_status(1.0);
@@ -355,8 +418,73 @@ where
 }
 
 #[derive(Debug)]
+pub enum LoaderError {
+    Regex,
+    Recorder(burn::record::RecorderError),
+    RecorderErrors(Vec<burn::store::ApplyError>),
+    RecorderMissing(Vec<(String, String)>),
+    Pytorch(burn::store::PytorchStoreError),
+}
+
+impl fmt::Display for LoaderError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Self::Regex => write!(f, "Regex error"),
+            Self::Recorder(ref err) => write!(f, "Recorder error: {err}"),
+            Self::RecorderErrors(ref errs) => {
+                write!(f, "Recorder errors: ")?;
+                for (i, err) in errs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", {err}")?;
+                    } else {
+                        write!(f, "{err}")?;
+                    }
+                }
+                Ok(())
+            }
+            Self::RecorderMissing(ref items) => {
+                write!(f, "Recorder missing items: ")?;
+                for (i, (path, stack)) in items.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", {path}={stack}")?;
+                    } else {
+                        write!(f, "{path}={stack}")?;
+                    }
+                }
+                Ok(())
+            }
+            Self::Pytorch(ref err) => write!(f, "PyTorch store error: {err}"),
+        }
+    }
+}
+
+impl std::error::Error for LoaderError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match *self {
+            Self::Regex => None,
+            Self::Recorder(ref err) => Some(err),
+            Self::RecorderErrors(ref _errs) => None,
+            Self::RecorderMissing(ref _items) => None,
+            Self::Pytorch(ref err) => Some(err),
+        }
+    }
+}
+
+impl From<burn::record::RecorderError> for LoaderError {
+    fn from(e: burn::record::RecorderError) -> LoaderError {
+        Self::Recorder(e)
+    }
+}
+
+impl From<burn::store::PytorchStoreError> for LoaderError {
+    fn from(e: burn::store::PytorchStoreError) -> LoaderError {
+        Self::Pytorch(e)
+    }
+}
+
+#[derive(Debug)]
 pub enum ModelError {
-    Internal(&'static str, RecorderError),
+    Internal(&'static str, LoaderError),
 }
 
 impl fmt::Display for ModelError {

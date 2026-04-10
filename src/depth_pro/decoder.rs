@@ -22,10 +22,10 @@ where
 {
     fn new(num_features: usize, device: &B::Device) -> ResidualConvUnit<B> {
         let conv1 = Conv2dConfig::new([num_features, num_features], [3, 3])
-            .with_padding(PaddingConfig2d::Explicit(1, 1))
+            .with_padding(PaddingConfig2d::Explicit(1, 1, 1, 1))
             .init(device);
         let conv2 = Conv2dConfig::new([num_features, num_features], [3, 3])
-            .with_padding(PaddingConfig2d::Explicit(1, 1))
+            .with_padding(PaddingConfig2d::Explicit(1, 1, 1, 1))
             .init(device);
         let residual = vec![conv1, conv2];
 
@@ -133,7 +133,7 @@ impl MultiresConvDecoderConfig {
             convs.push(
                 Conv2dConfig::new([*dims_encoder_i, dim_decoder], [3, 3])
                     .with_bias(false)
-                    .with_padding(PaddingConfig2d::Explicit(1, 1))
+                    .with_padding(PaddingConfig2d::Explicit(1, 1, 1, 1))
                     .init(device),
             )
         }
