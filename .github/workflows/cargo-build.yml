@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: true
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Get current Rust version
       id: get-rust-version
@@ -20,7 +20,7 @@ jobs:
 
     - name: Cache Rust dependencies and artifacts
       id: cache-rust
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           ~/.cargo/registry/index
@@ -55,7 +55,7 @@ jobs:
           acceleration: ndarray
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Get current Rust version
       id: get-rust-version
@@ -76,7 +76,7 @@ jobs:
 
     - name: Cache Rust dependencies and artifacts
       id: cache-rust
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           ~/.cargo/registry/index
@@ -117,7 +117,7 @@ jobs:
       run: tar -cvjf matrix-eyes-${{ matrix.os }}-${{ matrix.arch }}-${ARTIFACT_FEATURES}.tar.bz2 -C target/${{ matrix.arch }}-unknown-linux-gnu/release matrix-eyes
 
     - name: Upload application
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: matrix-eyes-${{ matrix.os }}-${{ matrix.arch }}-${{ steps.set-features-env.outputs.ARTIFACT_FEATURES }}
         path: matrix-eyes-*.tar.bz2
@@ -150,7 +150,7 @@ jobs:
           acceleration: ndarray
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Get current Rust version
       id: get-rust-version
@@ -174,7 +174,7 @@ jobs:
 
     - name: Cache Rust dependencies and artifacts
       id: cache-rust
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           ~\.cargo\registry\index
@@ -211,7 +211,7 @@ jobs:
       run: Compress-Archive -Path .\target\${{ matrix.arch }}-pc-windows-msvc\release\matrix-eyes.exe -DestinationPath "matrix-eyes-${{ runner.os }}-${{ matrix.arch }}-$env:ARTIFACT_FEATURES.zip"
 
     - name: Upload application
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: matrix-eyes-${{ runner.os }}-${{ matrix.arch }}-${{ steps.set-features-env.outputs.ARTIFACT_FEATURES }}
         path: matrix-eyes-*.zip
@@ -229,7 +229,7 @@ jobs:
         Compress-Archive -Path .\cuda\* -DestinationPath cuda-${{ runner.os }}-${{ matrix.arch }}-burn.zip
 
     - name: Upload CUDA
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       if: false # matrix.acceleration == 'cuda'
       with:
         name: cuda-${{ runner.os }}-${{ matrix.arch }}
@@ -260,7 +260,7 @@ jobs:
           acceleration: ndarray-accelerate
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Get current Rust version
       id: get-rust-version
@@ -281,7 +281,7 @@ jobs:
 
     - name: Cache Rust dependencies and artifacts
       id: cache-rust
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           ~/.cargo/registry/index
@@ -301,7 +301,7 @@ jobs:
       run: tar -cvjf matrix-eyes-${{ runner.os }}-${{ matrix.arch }}-${ARTIFACT_FEATURES}.tar.bz2 -C target/${{ matrix.arch }}-apple-darwin/release matrix-eyes
 
     - name: Upload application
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: matrix-eyes-${{ runner.os }}-${{ matrix.arch }}-${{ steps.set-features-env.outputs.ARTIFACT_FEATURES }}
         path: matrix-eyes-*.tar.bz2
@@ -311,7 +311,7 @@ jobs:
     needs: [ "build-linux", "build-windows", "build-macos" ]
     steps:
       - name: Merge all applications
-        uses: actions/upload-artifact/merge@v4
+        uses: actions/upload-artifact/merge@v7
         with:
           name: matrix-eyes-all
           pattern: matrix-eyes-*
