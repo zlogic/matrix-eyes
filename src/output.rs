@@ -14,7 +14,7 @@ use image::{
     DynamicImage, ImageReader, Rgb, RgbImage,
     imageops::{self, FilterType},
 };
-use rand::Rng as _;
+use rand::RngExt as _;
 
 pub struct DepthMap {
     data: Vec<f32>,
