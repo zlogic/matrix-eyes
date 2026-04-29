@@ -8,8 +8,8 @@ license = "Apache-2.0"
 rust-version = "1.92"
 
 [dependencies]
-burn = { version = "0.21.0-pre.3", default-features = false, features = ["std", "store"] }
-burn-store = { version = "0.21.0-pre.3", default-features = false, features = ["std", "pytorch"] }
+burn = { version = "0.21.0-pre.4", default-features = false, features = ["std", "store"] }
+burn-store = { version = "0.21.0-pre.4", default-features = false, features = ["std", "pytorch"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 kamadak-exif = { version = "0.6", default-features = false }
 indicatif = { version = "0.18", default-features = false }
