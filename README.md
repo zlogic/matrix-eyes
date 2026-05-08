@@ -36,19 +36,28 @@ Download a copy of Matrix Eyes from [Releases](releases) and extract it into in 
 The following versions are available:
 
 * Windows
-  * ndarray (slow, CPU-only version)
+  * wgpu-spirv-f16-fusion (vendor-neutral GPU version with f16 precision and fusion enabled, runs on a GPU with 8GB of VRAM, performance comparable to candle-cuda)
+  * wgpu-spirv-f16-fusion-autotune (vendor-neutral GPU version with f16 precision, fusion and autotune enabled, runs on a GPU with 8GB of VRAM)
   * wgpu-spirv-fusion-autotune (vendor-neutral GPU version with fusion and autotune enabled, fails to run on a GPU with 8GB of VRAM)
   * wgpu-spirv-autotune (vendor-neutral GPU version with autotune enabled, fails to run on a GPU with 8GB of VRAM)
   * wgpu-spirv-fusion (vendor-neutral GPU version with fusion enabled, runs on a GPU with 8GB of VRAM, performance comparable to candle-cuda)
+  * cuda-bf16-fusion (CUDA version with bf16 precision and fusion enabled, runs on a GPU with 8GB of VRAM)
+  * cuda-fusion-autotune (CUDA version with fusion and autotune enabled, fails to run on a GPU with 8GB of VRAM)
+  * cuda-fusion (CUDA version with fusion enabled, runs on a GPU with 8GB of VRAM)
 * Ubuntu
-  * ndarray (slow, CPU-only version)
-  * wgpu-spirv-fusion-autotune (not tested)
-  * wgpu-spirv-autotune (not tested)
-  * wgpu-spirv-fusion (not tested)
+  * wgpu-spirv-f16-fusion (vendor-neutral GPU version with f16 precision and fusion enabled, runs on a GPU with 8GB of VRAM, performance comparable to candle-cuda)
+  * wgpu-spirv-f16-fusion-autotune (vendor-neutral GPU version with f16 precision, fusion and autotune enabled, runs on a GPU with 8GB of VRAM)
+  * wgpu-spirv-fusion-autotune (vendor-neutral GPU version with fusion and autotune enabled, fails to run on a GPU with 8GB of VRAM)
+  * wgpu-spirv-autotune (vendor-neutral GPU version with autotune enabled, fails to run on a GPU with 8GB of VRAM)
+  * wgpu-spirv-fusion (vendor-neutral GPU version with fusion enabled, runs on a GPU with 8GB of VRAM, performance comparable to candle-cuda)
+  * cuda-bf16-fusion (CUDA version with bf16 precision and fusion enabled, runs on a GPU with 8GB of VRAM)
+  * cuda-fusion-autotune (CUDA version with fusion and autotune enabled, fails to run on a GPU with 8GB of VRAM)
+  * cuda-fusion (CUDA version with fusion enabled, runs on a GPU with 8GB of VRAM)
 * macOS
-  * wgpu-fusion-autotune (wgpu version with fusion and autotune enabled, uses 12+ GB when running)
-  * wgpu-fusion (wgpu version with fusion enabled, uses 12+ GB when running, runs faster than fusion-autotune)
-  * ndarray-accelerate (slow, CPU-only version that might be using AMX instructions)
+  * wgpu-metal-f16-fusion (wgpu version with fusion with f16 precision and fusion enabled, uses 8+ GB when running, runs faster than f16-fusion-autotune)
+  * wgpu-metal-f16-fusion-autotune (wgpu version with f16 precision, fusion and autotune enabled, uses 8+ GB when running)
+  * wgpu-metal-fusion (wgpu version with fusion enabled, uses 10 GB when running, runs faster than fusion-autotune)
+  * wgpu-metal-fusion-autotune (wgpu version with fusion and autotune enabled, uses 10 GB when running)
 
 For the Windows `cuda` version, download the [Burn CUDA libraries](https://github.com/zlogic/matrix-eyes/releases/download/0.1.4/cuda-Windows-x86_64-burn.zip) artifact and extract its contents into the same directory. Set the `CUDA_PATH` environment variable to the path where you've extracted matrix-eyes and the Burn CUDA libraries artifact.
 
