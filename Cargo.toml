@@ -2,7 +2,7 @@
 name = "matrix-eyes"
 version = "0.1.7"
 edition = "2024"
-authors = ["Dmitry Zolotukhin <zlogic@gmail.com>"]
+authors = ["Dmitrii Zolotukhin <contact@3d-net.nl>"]
 repository = "https://github.com/zlogic/matrix-eyes"
 license = "Apache-2.0"
 rust-version = "1.92"
