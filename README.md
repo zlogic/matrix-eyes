@@ -94,6 +94,7 @@ This can help with making noise pixels large enough to be visible.
 `plain` (the default option) outputs the mesh without any color or texture, `vertex-colors` outputs the mesh with colors assigned to every vertex, and `texture-coordinates` will add texture coordinates.
 
 `--convert-checkpoints` will convert checkpoints from a `.pt` (Python pickle) format into a more efficient Burn format.
+Delete \*.mpk files when switching between different precision modes (f32, f16 or bf16) - checkpoints in the Burn format are stored the native format to improve model load speeds and allow memmapping.
 
 `<source>` specifies the filename for the source file; supported formats are `jpg` and `png`.
 

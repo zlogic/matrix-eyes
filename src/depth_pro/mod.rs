@@ -218,8 +218,7 @@ impl DepthProModelLoader {
                 return Err(LoaderError::RecorderMissing(result.missing));
             }
             if self.convert_checkpoints {
-                let mut store = BurnpackStore::from_file(converted_filename)
-                    .with_to_adapter(HalfPrecisionAdapter::new(dtype));
+                let mut store = BurnpackStore::from_file(converted_filename);
                 model.save_into(&mut store)?;
             }
             Ok(model)
