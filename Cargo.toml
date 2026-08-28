@@ -5,23 +5,21 @@ edition = "2024"
 authors = ["Dmitrii Zolotukhin <contact@3d-net.nl>"]
 repository = "https://github.com/zlogic/matrix-eyes"
 license = "Apache-2.0"
-rust-version = "1.92"
+rust-version = "1.95"
 
 [dependencies]
-burn = { version = "0.21", default-features = false, features = ["std", "store"] }
-burn-store = { version = "0.21", default-features = false, features = ["std", "pytorch"] }
+burn = { version = "0.22.0-pre.3", default-features = false, features = ["std", "store", "extension"] }
+burn-store = { version = "0.22.0-pre.3", default-features = false, features = ["std", "pytorch"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 kamadak-exif = { version = "0.6", default-features = false }
 indicatif = { version = "0.18", default-features = false }
 rand = { version = "*", features = ["std", "std_rng", "thread_rng"] }
 
 [features]
-default = ["ndarray"]
+default = ["flex"]
 autotune = ["burn/autotune"]
 fusion = ["burn/fusion"]
-ndarray = ["burn/ndarray"]
-ndarray-accelerate = ["burn/ndarray", "burn/accelerate"]
-cpu = ["burn/cpu"]
+flex = ["burn/flex"]
 wgpu-metal = ["burn/metal"]
 wgpu-spirv = ["burn/vulkan"]
 cuda = ["burn/cuda"]

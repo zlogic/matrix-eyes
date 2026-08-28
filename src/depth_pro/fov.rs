@@ -5,9 +5,8 @@ use burn::{
         Linear, LinearConfig, PaddingConfig2d, Relu,
         conv::{Conv2d, Conv2dConfig},
     },
-    prelude::Backend,
     tensor::{
-        Tensor,
+        Device, Tensor,
         module::interpolate,
         ops::{InterpolateMode, InterpolateOptions},
     },
@@ -21,28 +20,25 @@ use super::{
 const EMBED_DIM: usize = vit::EMBED_DIM;
 
 #[derive(Module, Debug)]
-struct Encoder<B: Backend> {
-    fov_encoder: DinoVisionTransformer<B>,
-    linear: Linear<B>,
+struct Encoder {
+    fov_encoder: DinoVisionTransformer,
+    linear: Linear,
 }
 
 #[derive(Module, Debug)]
-pub(super) struct FOVNetwork<B: Backend> {
-    encoder: Encoder<B>,
-    downsample: Vec<Conv2d<B>>,
-    head: Vec<Conv2d<B>>,
+pub(super) struct FOVNetwork {
+    encoder: Encoder,
+    downsample: Vec<Conv2d>,
+    head: Vec<Conv2d>,
 }
 
-impl<B> FOVNetwork<B>
-where
-    B: Backend,
-{
+impl FOVNetwork {
     pub fn forward<PL>(
         &self,
-        x: Tensor<B, 4>,
-        lowres_feature: Tensor<B, 4>,
+        x: Tensor<4>,
+        lowres_feature: Tensor<4>,
         pl: SplitProgressListener<PL>,
-    ) -> Tensor<B, 1>
+    ) -> Tensor<1>
     where
         PL: ProgressListener,
     {
@@ -92,10 +88,7 @@ where
 pub(super) struct FOVNetworkConfig {}
 
 impl FOVNetworkConfig {
-    pub fn init<B>(num_features: usize, device: &B::Device) -> FOVNetwork<B>
-    where
-        B: Backend,
-    {
+    pub fn init(num_features: usize, device: &Device) -> FOVNetwork {
         let fov_encoder = vit::dinov2l16_384_init(device);
 
         let fov_head0 = Conv2dConfig::new([num_features, num_features / 2], [3, 3])

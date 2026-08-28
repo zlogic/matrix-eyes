@@ -6,10 +6,7 @@ use std::{
     path::Path,
 };
 
-use burn::{
-    prelude::Backend,
-    tensor::{DataError, Tensor},
-};
+use burn::tensor::{DataError, Tensor};
 use image::{
     DynamicImage, ImageReader, Rgb, RgbImage,
     imageops::{self, FilterType},
@@ -41,13 +38,7 @@ const POLYGON_DEPTH_THRESHOLD: f32 = 1.025;
 const CLIP_DEPTH_RANGE: Range<f32> = 0.1..250.0;
 
 impl DepthMap {
-    pub fn new<B>(
-        inverse_depth: Tensor<B, 2>,
-        original_size: (u32, u32),
-    ) -> Result<DepthMap, DataError>
-    where
-        B: Backend,
-    {
+    pub fn new(inverse_depth: Tensor<2>, original_size: (u32, u32)) -> Result<DepthMap, DataError> {
         const CLAMP_RANGE: Range<f32> = 1.0 / CLIP_DEPTH_RANGE.end..1.0 / CLIP_DEPTH_RANGE.start;
         let [data_width, data_height] = inverse_depth.dims();
         let data = inverse_depth

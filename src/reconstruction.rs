@@ -3,10 +3,7 @@ use std::{
     fmt::{self, Write},
 };
 
-use burn::{
-    prelude::Backend,
-    tensor::{Float, Tensor, TensorData},
-};
+use burn::tensor::{Device, DeviceConfig, DeviceError, Float, FloatDType, Tensor, TensorData};
 use image::{DynamicImage, ImageDecoder, ImageReader, imageops};
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
@@ -28,67 +25,62 @@ const fn from_f32(value: f32) -> FloatType {
     value
 }
 
-#[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
-pub type EnabledBackend = burn::backend::NdArray;
-#[cfg(feature = "cpu")]
-pub type EnabledBackend = burn::backend::Cpu;
-#[cfg(feature = "wgpu-spirv")]
-pub type EnabledBackend = burn::backend::Vulkan<FloatType>;
-#[cfg(feature = "wgpu-metal")]
-pub type EnabledBackend = burn::backend::Metal<FloatType>;
-#[cfg(feature = "cuda")]
-pub type EnabledBackend = burn::backend::Cuda<FloatType>;
-
-#[cfg(any(feature = "ndarray", feature = "ndarray-accelerate"))]
-pub fn init_device() -> burn::backend::ndarray::NdArrayDevice {
-    burn::backend::ndarray::NdArrayDevice::Cpu
+#[cfg(feature = "flex")]
+pub fn init_device() -> Result<Device, DeviceError> {
+    configure_device(Device::flex())
 }
-
-#[cfg(feature = "cpu")]
-pub fn init_device() -> burn::backend::cpu::CpuDevice {
-    burn::backend::cpu::CpuDevice
-}
-
-#[cfg(feature = "wgpu-spirv")]
-type WgpuApi = burn::backend::wgpu::graphics::Vulkan;
-
-#[cfg(feature = "wgpu-metal")]
-type WgpuApi = burn::backend::wgpu::graphics::Metal;
 
 #[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
-pub fn init_device() -> burn::backend::wgpu::WgpuDevice {
+pub fn init_device() -> Result<Device, DeviceError> {
+    #[cfg(feature = "wgpu-spirv")]
+    type WgpuApi = burn::backend::wgpu::graphics::Vulkan;
+
+    #[cfg(feature = "wgpu-metal")]
+    type WgpuApi = burn::backend::wgpu::graphics::Metal;
+
     let device = burn::backend::wgpu::WgpuDevice::DefaultDevice;
     let runtime_options = burn::backend::wgpu::RuntimeOptions {
         tasks_max: 1,
         memory_config: Default::default(),
     };
     burn::backend::wgpu::init_setup::<WgpuApi>(&device, runtime_options);
-    device
+    let device = Device::new(device);
+    configure_device(device)
 }
 
 #[cfg(feature = "cuda")]
-pub fn init_device() -> burn::backend::cuda::CudaDevice {
-    burn::backend::cuda::CudaDevice::default()
+pub fn init_device() -> Result<Device, DeviceError> {
+    configure_device(Device::cuda(burn::tensor::DeviceIndex::Default))
 }
 
-struct SourceImage<B>
-where
-    B: Backend,
-{
-    img: Tensor<B, 4>,
+fn configure_device(mut device: Device) -> Result<Device, DeviceError> {
+    let float_dtype = if cfg!(feature = "f16") {
+        FloatDType::F16
+    } else if cfg!(feature = "bf16") {
+        FloatDType::BF16
+    } else {
+        FloatDType::F32
+    };
+
+    device.configure(DeviceConfig {
+        float_dtype: Some(float_dtype),
+        ..Default::default()
+    })?;
+    Ok(device)
+}
+
+struct SourceImage {
+    img: Tensor<4>,
     original_size: (u32, u32),
     focal_length_35mm: Option<f32>,
 }
 
-impl<B> SourceImage<B>
-where
-    B: Backend,
-{
+impl SourceImage {
     fn load(
         path: &str,
         focal_length_35mm: Option<f32>,
-        device: &B::Device,
-    ) -> Result<SourceImage<B>, ReconstructionError> {
+        device: &Device,
+    ) -> Result<SourceImage, ReconstructionError> {
         const IMG_SIZE: usize = depth_pro::IMG_SIZE;
         const MEAN: [FloatType; 3] = [from_f32(0.5), from_f32(0.5), from_f32(0.5)];
         const STD: [FloatType; 3] = [from_f32(0.5), from_f32(0.5), from_f32(0.5)];
@@ -114,13 +106,13 @@ where
         let data = img.into_raw();
 
         let data = TensorData::new(data, [IMG_SIZE, IMG_SIZE, 3]);
-        let data = Tensor::<B, 3, Float>::from_data(data.convert::<B::FloatElem>(), device)
+        let data = Tensor::<3, Float>::from_data(data.convert::<FloatType>(), device)
             .permute([2, 0, 1])
             / 255.0;
-        let mean = TensorData::new(MEAN.to_vec(), [3, 1, 1]).convert::<B::FloatElem>();
-        let std = TensorData::new(STD.to_vec(), [3, 1, 1]).convert::<B::FloatElem>();
-        let mean = Tensor::<B, 3>::from_data(mean, device);
-        let std = Tensor::<B, 3>::from_data(std, device);
+        let mean = TensorData::new(MEAN.to_vec(), [3, 1, 1]).convert::<FloatType>();
+        let std = TensorData::new(STD.to_vec(), [3, 1, 1]).convert::<FloatType>();
+        let mean = Tensor::<3>::from_data(mean, device);
+        let std = Tensor::<3>::from_data(std, device);
         let img = ((data - mean) / std).unsqueeze();
 
         Ok(SourceImage {
@@ -152,19 +144,16 @@ where
     }
 }
 
-pub fn extract_depth<B>(
-    device: &B::Device,
+pub fn extract_depth(
+    device: &Device,
     model_loader: &depth_pro::DepthProModelLoader,
     source_path: &str,
     destination_path: &str,
     focal_length_35mm: Option<f32>,
     image_format: output::ImageOutputFormat,
     vertex_mode: output::VertexMode,
-) -> Result<(), ReconstructionError>
-where
-    B: Backend,
-{
-    let img = match SourceImage::<B>::load(source_path, focal_length_35mm, device) {
+) -> Result<(), ReconstructionError> {
+    let img = match SourceImage::load(source_path, focal_length_35mm, device) {
         Ok(img) => img,
         Err(err) => {
             eprintln!("Failed to load source image: {err}");
@@ -186,7 +175,7 @@ where
         }
     };
 
-    let depth_map = match output::DepthMap::new::<B>(inverse_depth, img.original_size) {
+    let depth_map = match output::DepthMap::new(inverse_depth, img.original_size) {
         Ok(depth_map) => depth_map,
         Err(err) => {
             eprintln!("Failed to read depth data from device: {err}");
@@ -257,12 +246,7 @@ impl fmt::Display for ReconstructionError {
             Self::Image(ref err) => write!(f, "Image error: {err}"),
             Self::Io(ref err) => write!(f, "IO error: {err}"),
             Self::Exif(ref err) => write!(f, "EXIF error: {err}"),
-            Self::BurnData(burn::tensor::DataError::CastError(ref err)) => {
-                write!(f, "Burn data cast error: {err}")
-            }
-            Self::BurnData(burn::tensor::DataError::TypeMismatch(ref str)) => {
-                write!(f, "Burn data type mismatch: {str}")
-            }
+            Self::BurnData(ref err) => write!(f, "Burn data error: {err}"),
         }
     }
 }

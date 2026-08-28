@@ -5,22 +5,18 @@ use burn::{
         PaddingConfig2d, Relu,
         conv::{Conv2d, Conv2dConfig, ConvTranspose2d, ConvTranspose2dConfig},
     },
-    prelude::Backend,
-    tensor::Tensor,
+    tensor::{Device, Tensor},
 };
 
 use super::{ProgressListener, SplitProgressListener};
 
 #[derive(Module, Debug)]
-struct ResidualConvUnit<B: Backend> {
-    residual: Vec<Conv2d<B>>,
+struct ResidualConvUnit {
+    residual: Vec<Conv2d>,
 }
 
-impl<B> ResidualConvUnit<B>
-where
-    B: Backend,
-{
-    fn new(num_features: usize, device: &B::Device) -> ResidualConvUnit<B> {
+impl ResidualConvUnit {
+    fn new(num_features: usize, device: &Device) -> ResidualConvUnit {
         let conv1 = Conv2dConfig::new([num_features, num_features], [3, 3])
             .with_padding(PaddingConfig2d::Explicit(1, 1, 1, 1))
             .init(device);
@@ -32,7 +28,7 @@ where
         ResidualConvUnit { residual }
     }
 
-    fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 4> {
+    fn forward(&self, input: Tensor<4>) -> Tensor<4> {
         let activation = Relu::new();
         let mut out = input.clone();
         for conv in &self.residual {
@@ -45,18 +41,15 @@ where
 }
 
 #[derive(Module, Debug)]
-struct FeatureFusionBlock<B: Backend> {
-    resnet1: ResidualConvUnit<B>,
-    resnet2: ResidualConvUnit<B>,
-    deconv: Option<ConvTranspose2d<B>>,
-    out_conv: Conv2d<B>,
+struct FeatureFusionBlock {
+    resnet1: ResidualConvUnit,
+    resnet2: ResidualConvUnit,
+    deconv: Option<ConvTranspose2d>,
+    out_conv: Conv2d,
 }
 
-impl<B> FeatureFusionBlock<B>
-where
-    B: Backend,
-{
-    fn new(num_features: usize, deconv: bool, device: &B::Device) -> FeatureFusionBlock<B> {
+impl FeatureFusionBlock {
+    fn new(num_features: usize, deconv: bool, device: &Device) -> FeatureFusionBlock {
         let resnet1 = ResidualConvUnit::new(num_features, device);
         let resnet2 = ResidualConvUnit::new(num_features, device);
 
@@ -81,7 +74,7 @@ where
         }
     }
 
-    fn forward(&self, x0: Tensor<B, 4>, mut x1: Option<Tensor<B, 4>>) -> Tensor<B, 4> {
+    fn forward(&self, x0: Tensor<4>, mut x1: Option<Tensor<4>>) -> Tensor<4> {
         let out = if let Some(x1) = x1.take() {
             // skip_add in PyTorch is just a regular addition.
             let res = self.resnet1.forward(x1);
@@ -103,23 +96,20 @@ where
 }
 
 #[derive(Module, Debug)]
-pub(super) struct MultiresConvDecoder<B: Backend> {
-    convs: Vec<Conv2d<B>>,
-    fusions: Vec<FeatureFusionBlock<B>>,
+pub(super) struct MultiresConvDecoder {
+    convs: Vec<Conv2d>,
+    fusions: Vec<FeatureFusionBlock>,
 }
 
 #[derive(Config, Debug)]
 pub(super) struct MultiresConvDecoderConfig {}
 
 impl MultiresConvDecoderConfig {
-    pub fn init<B>(
+    pub fn init(
         dims_encoder: &[usize],
         dim_decoder: usize,
-        device: &B::Device,
-    ) -> MultiresConvDecoder<B>
-    where
-        B: Backend,
-    {
+        device: &Device,
+    ) -> MultiresConvDecoder {
         let mut convs = if dims_encoder[0] != dim_decoder {
             vec![
                 Conv2dConfig::new([dims_encoder[0], dim_decoder], [1, 1])
@@ -146,15 +136,12 @@ impl MultiresConvDecoderConfig {
     }
 }
 
-impl<B> MultiresConvDecoder<B>
-where
-    B: Backend,
-{
+impl MultiresConvDecoder {
     pub fn forward<PL>(
         &self,
-        mut encodings: Vec<Tensor<B, 4>>,
+        mut encodings: Vec<Tensor<4>>,
         pl: SplitProgressListener<PL>,
-    ) -> (Tensor<B, 4>, Tensor<B, 4>)
+    ) -> (Tensor<4>, Tensor<4>)
     where
         PL: ProgressListener,
     {

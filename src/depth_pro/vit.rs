@@ -7,9 +7,8 @@ use burn::{
         Initializer, LayerNorm, LayerNormConfig, Linear, LinearConfig,
         conv::{Conv2d, Conv2dConfig},
     },
-    prelude::Backend,
     tensor::{
-        Tensor,
+        Device, Tensor,
         activation::{gelu, softmax},
     },
 };
@@ -19,9 +18,9 @@ pub(super) const PATCH_SIZE: usize = 16;
 pub(super) const EMBED_DIM: usize = 1024;
 
 #[derive(Module, Debug)]
-struct Attention<B: Backend> {
-    qkv: Linear<B>,
-    proj: Linear<B>,
+struct Attention {
+    qkv: Linear,
+    proj: Linear,
     num_heads: usize,
     scale: f64,
 }
@@ -34,10 +33,7 @@ struct AttentionConfig {
 }
 
 impl AttentionConfig {
-    fn init<B>(&self, device: &B::Device) -> Attention<B>
-    where
-        B: Backend,
-    {
+    fn init(&self, device: &Device) -> Attention {
         let qkv = LinearConfig::new(self.dim, self.dim * 3)
             .with_bias(self.qkv_bias)
             .init(device);
@@ -54,8 +50,8 @@ impl AttentionConfig {
     }
 }
 
-impl<B: Backend> Attention<B> {
-    fn forward(&self, xs: Tensor<B, 3>) -> Tensor<B, 3> {
+impl Attention {
+    fn forward(&self, xs: Tensor<3>) -> Tensor<3> {
         let [b, n, c] = xs.dims();
         let qkv = self
             .qkv
@@ -76,36 +72,30 @@ impl<B: Backend> Attention<B> {
 }
 
 #[derive(Module, Debug)]
-struct LayerScale<B: Backend> {
-    gamma: Param<Tensor<B, 1>>,
+struct LayerScale {
+    gamma: Param<Tensor<1>>,
 }
 
-impl<B> LayerScale<B>
-where
-    B: Backend,
-{
-    fn new(device: &B::Device, dim: usize) -> Self {
+impl LayerScale {
+    fn new(device: &Device, dim: usize) -> Self {
         let initializer = Initializer::Zeros;
         let gamma = initializer.init([dim], device);
         Self { gamma }
     }
 
-    fn forward(&self, xs: Tensor<B, 3>) -> Tensor<B, 3> {
+    fn forward(&self, xs: Tensor<3>) -> Tensor<3> {
         xs * self.gamma.val().unsqueeze_dims(&[0, 1])
     }
 }
 
 #[derive(Module, Debug)]
-struct Mlp<B: Backend> {
-    fc1: Linear<B>,
-    fc2: Linear<B>,
+struct Mlp {
+    fc1: Linear,
+    fc2: Linear,
 }
 
-impl<B> Mlp<B>
-where
-    B: Backend,
-{
-    fn new(in_features: usize, hidden_features: usize, bias: bool, device: &B::Device) -> Mlp<B> {
+impl Mlp {
+    fn new(in_features: usize, hidden_features: usize, bias: bool, device: &Device) -> Mlp {
         let out_features = in_features;
         let fc1 = LinearConfig::new(in_features, hidden_features)
             .with_bias(bias)
@@ -116,7 +106,7 @@ where
         Mlp { fc1, fc2 }
     }
 
-    fn forward(&self, xs: Tensor<B, 3>) -> Tensor<B, 3> {
+    fn forward(&self, xs: Tensor<3>) -> Tensor<3> {
         let xs = self.fc1.forward(xs);
         let xs = gelu(xs);
         self.fc2.forward(xs)
@@ -124,20 +114,17 @@ where
 }
 
 #[derive(Module, Debug)]
-struct Block<B: Backend> {
-    norm1: LayerNorm<B>,
-    attn: Attention<B>,
-    ls1: LayerScale<B>,
-    norm2: LayerNorm<B>,
-    mlp: Mlp<B>,
-    ls2: LayerScale<B>,
+struct Block {
+    norm1: LayerNorm,
+    attn: Attention,
+    ls1: LayerScale,
+    norm2: LayerNorm,
+    mlp: Mlp,
+    ls2: LayerScale,
 }
 
-impl<B> Block<B>
-where
-    B: Backend,
-{
-    fn new(dim: usize, num_heads: usize, device: &B::Device) -> Block<B> {
+impl Block {
+    fn new(dim: usize, num_heads: usize, device: &Device) -> Block {
         let norm1 = LayerNormConfig::new(dim).init(device);
         let attn = AttentionConfig {
             dim,
@@ -160,7 +147,7 @@ where
         }
     }
 
-    fn forward(&self, xs: Tensor<B, 3>) -> Tensor<B, 3> {
+    fn forward(&self, xs: Tensor<3>) -> Tensor<3> {
         let residual = xs.clone();
         let xs = self.ls1.forward(self.attn.forward(self.norm1.forward(xs)));
         let xs = xs + residual;
@@ -171,8 +158,8 @@ where
 }
 
 #[derive(Module, Debug)]
-struct PatchEmbed<B: Backend> {
-    proj: Conv2d<B>,
+struct PatchEmbed {
+    proj: Conv2d,
     patch_size: (usize, usize),
     num_patches: usize,
 }
@@ -186,10 +173,7 @@ struct PatchEmbedConfig {
 }
 
 impl PatchEmbedConfig {
-    fn init<B>(&self, device: &B::Device) -> PatchEmbed<B>
-    where
-        B: Backend,
-    {
+    fn init(&self, device: &Device) -> PatchEmbed {
         let proj = Conv2dConfig::new(
             [self.in_chans, self.embed_dim],
             [self.patch_size, self.patch_size],
@@ -206,8 +190,8 @@ impl PatchEmbedConfig {
     }
 }
 
-impl<B: Backend> PatchEmbed<B> {
-    fn forward(&self, xs: Tensor<B, 4>) -> Tensor<B, 3> {
+impl PatchEmbed {
+    fn forward(&self, xs: Tensor<4>) -> Tensor<3> {
         let [_b, _c, h, w] = xs.dims();
         let (patch_h, patch_w) = self.patch_size;
         if (h % patch_h) != 0 {
@@ -224,12 +208,12 @@ impl<B: Backend> PatchEmbed<B> {
 }
 
 #[derive(Module, Debug)]
-pub(super) struct DinoVisionTransformer<B: Backend> {
-    patch_embed: PatchEmbed<B>,
-    cls_token: Param<Tensor<B, 3>>,
-    pos_embed: Param<Tensor<B, 3>>,
-    blocks: Vec<Block<B>>,
-    norm: LayerNorm<B>,
+pub(super) struct DinoVisionTransformer {
+    patch_embed: PatchEmbed,
+    cls_token: Param<Tensor<3>>,
+    pos_embed: Param<Tensor<3>>,
+    blocks: Vec<Block>,
+    norm: LayerNorm,
 }
 
 #[derive(Config, Debug)]
@@ -242,10 +226,7 @@ struct DinoVisionTransformerConfig {
 }
 
 impl DinoVisionTransformerConfig {
-    pub fn init<B>(&self, device: &B::Device) -> DinoVisionTransformer<B>
-    where
-        B: Backend,
-    {
+    pub fn init(&self, device: &Device) -> DinoVisionTransformer {
         let patch_embed = PatchEmbedConfig {
             img_size: self.img_size,
             patch_size: self.patch_size,
@@ -274,8 +255,8 @@ impl DinoVisionTransformerConfig {
     }
 }
 
-impl<B: Backend> DinoVisionTransformer<B> {
-    fn interpolate_pos_encoding(&self, xs_shape: [usize; 3], w: usize, h: usize) -> Tensor<B, 3> {
+impl DinoVisionTransformer {
+    fn interpolate_pos_encoding(&self, xs_shape: [usize; 3], w: usize, h: usize) -> Tensor<3> {
         let npatch = xs_shape[1] - 1;
         let n = self.pos_embed.dims()[1] - 1;
         if npatch != n || w != h {
@@ -284,22 +265,22 @@ impl<B: Backend> DinoVisionTransformer<B> {
         self.pos_embed.val()
     }
 
-    fn prepare_tokens_with_mask(&self, xs: Tensor<B, 4>) -> Tensor<B, 3> {
+    fn prepare_tokens_with_mask(&self, xs: Tensor<4>) -> Tensor<3> {
         let [b, _nc, w, h] = xs.dims();
         let xs = self.patch_embed.forward(xs);
         let cls_shape = self.cls_token.dims();
         let cls_token = self.cls_token.val().expand([b, cls_shape[1], cls_shape[2]]);
-        let xs = Tensor::<B, 3>::cat(vec![cls_token, xs], 1);
+        let xs = Tensor::<3>::cat(vec![cls_token, xs], 1);
         let xs_shape = xs.dims();
         xs + self.interpolate_pos_encoding(xs_shape, w, h)
     }
 
     fn get_intermediate_layers_not_chunked<PL>(
         &self,
-        xs: Tensor<B, 4>,
+        xs: Tensor<4>,
         blocks_to_take: &[usize],
         pl: SplitProgressListener<PL>,
-    ) -> (Tensor<B, 3>, Vec<Tensor<B, 3>>)
+    ) -> (Tensor<3>, Vec<Tensor<3>>)
     where
         PL: ProgressListener,
     {
@@ -327,10 +308,10 @@ impl<B: Backend> DinoVisionTransformer<B> {
 
     pub fn forward_features<PL>(
         &self,
-        xs: Tensor<B, 4>,
+        xs: Tensor<4>,
         intermediate_blocks: &[usize],
         pl: SplitProgressListener<PL>,
-    ) -> (Tensor<B, 3>, Vec<Tensor<B, 3>>)
+    ) -> (Tensor<3>, Vec<Tensor<3>>)
     where
         PL: ProgressListener,
     {
@@ -346,7 +327,7 @@ impl<B: Backend> DinoVisionTransformer<B> {
     }
 }
 
-pub(super) fn dinov2l16_384_init<B: Backend>(device: &B::Device) -> DinoVisionTransformer<B> {
+pub(super) fn dinov2l16_384_init(device: &Device) -> DinoVisionTransformer {
     let config = DinoVisionTransformerConfig {
         img_size: IMG_SIZE,
         patch_size: PATCH_SIZE,

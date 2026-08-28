@@ -6,9 +6,8 @@ use burn::{
     config::Config,
     module::Module,
     nn::conv::{Conv2d, Conv2dConfig, ConvTranspose2d, ConvTranspose2dConfig},
-    prelude::Backend,
     tensor::{
-        Tensor,
+        Device, Tensor,
         module::interpolate,
         ops::{InterpolateMode, InterpolateOptions},
     },
@@ -19,30 +18,27 @@ const EMBED_DIM: usize = vit::EMBED_DIM;
 const PATCH_SIZE: usize = vit::PATCH_SIZE;
 
 #[derive(Module, Debug)]
-pub(super) struct DepthProEncoder<B: Backend> {
-    patch_encoder: DinoVisionTransformer<B>,
-    image_encoder: DinoVisionTransformer<B>,
-    upsample_latent0: Vec<ConvBlock<B>>,
-    upsample_latent1: Vec<ConvBlock<B>>,
-    upsample0: Vec<ConvBlock<B>>,
-    upsample1: Vec<ConvBlock<B>>,
-    upsample2: Vec<ConvBlock<B>>,
-    upsample_lowres: ConvTranspose2d<B>,
-    fuse_lowres: Conv2d<B>,
+pub(super) struct DepthProEncoder {
+    patch_encoder: DinoVisionTransformer,
+    image_encoder: DinoVisionTransformer,
+    upsample_latent0: Vec<ConvBlock>,
+    upsample_latent1: Vec<ConvBlock>,
+    upsample0: Vec<ConvBlock>,
+    upsample1: Vec<ConvBlock>,
+    upsample2: Vec<ConvBlock>,
+    upsample_lowres: ConvTranspose2d,
+    fuse_lowres: Conv2d,
 }
 
 #[derive(Config, Debug)]
 pub(super) struct DepthProEncoderConfig {}
 
 impl DepthProEncoderConfig {
-    pub fn init<B>(
+    pub fn init(
         encoder_feature_dims: &[usize; 4],
         decoder_features: usize,
-        device: &B::Device,
-    ) -> DepthProEncoder<B>
-    where
-        B: Backend,
-    {
+        device: &Device,
+    ) -> DepthProEncoder {
         let patch_encoder = vit::dinov2l16_384_init(device);
         let image_encoder = vit::dinov2l16_384_init(device);
         let upsample_latent0 = Self::init_project_upsample_block(
@@ -82,16 +78,13 @@ impl DepthProEncoderConfig {
         }
     }
 
-    fn init_project_upsample_block<B>(
-        device: &B::Device,
+    fn init_project_upsample_block(
+        device: &Device,
         dim_in: usize,
         dim_out: usize,
         upsample_layers: usize,
         dim_int: Option<usize>,
-    ) -> Vec<ConvBlock<B>>
-    where
-        B: Backend,
-    {
+    ) -> Vec<ConvBlock> {
         let dim_int = dim_int.unwrap_or(dim_out);
         let mut layers = vec![ConvBlock {
             conv: Some(
@@ -118,11 +111,8 @@ impl DepthProEncoderConfig {
     }
 }
 
-impl<B> DepthProEncoder<B>
-where
-    B: Backend,
-{
-    fn create_pyramid(x: Tensor<B, 4>) -> (Tensor<B, 4>, Tensor<B, 4>, Tensor<B, 4>) {
+impl DepthProEncoder {
+    fn create_pyramid(x: Tensor<4>) -> (Tensor<4>, Tensor<4>, Tensor<4>) {
         const INTERPOLATE_MODE: InterpolateMode = InterpolateMode::Bilinear;
         let [_b, _c, h, w] = x.dims();
         let x1 = interpolate(
@@ -139,7 +129,7 @@ where
         (x0, x1, x2)
     }
 
-    fn split(x: Tensor<B, 4>, overlap_div: usize) -> Tensor<B, 4> {
+    fn split(x: Tensor<4>, overlap_div: usize) -> Tensor<4> {
         const PATCH_SIZE: usize = 384;
         let patch_stride = PATCH_SIZE - PATCH_SIZE / overlap_div;
 
@@ -152,10 +142,10 @@ where
                 x_patch_list.push(x_chunk.clone().narrow(3, i, PATCH_SIZE));
             }
         }
-        Tensor::<B, 4>::cat(x_patch_list, 0)
+        Tensor::<4>::cat(x_patch_list, 0)
     }
 
-    fn merge(x: Tensor<B, 4>, batch_size: usize, padding: usize) -> Tensor<B, 4> {
+    fn merge(x: Tensor<4>, batch_size: usize, padding: usize) -> Tensor<4> {
         let [b, c, h, w] = x.dims();
         let steps = ((b / batch_size) as f64).sqrt() as usize;
 
@@ -189,11 +179,11 @@ where
     }
 
     fn reshape_feature(
-        embeddings: Tensor<B, 3>,
+        embeddings: Tensor<3>,
         width: usize,
         height: usize,
         cls_token_offset: usize,
-    ) -> Tensor<B, 4> {
+    ) -> Tensor<4> {
         let [b, hw, c] = embeddings.dims();
 
         let embeddings = if cls_token_offset > 0 {
@@ -207,7 +197,7 @@ where
             .permute([0, 3, 1, 2])
     }
 
-    fn forward_seq(blocks: &[ConvBlock<B>], input: Tensor<B, 4>) -> Tensor<B, 4> {
+    fn forward_seq(blocks: &[ConvBlock], input: Tensor<4>) -> Tensor<4> {
         let mut result = input;
         for block in blocks {
             result = block.forward(result);
@@ -217,9 +207,9 @@ where
 
     pub fn forward_encodings<PL>(
         &self,
-        x: Tensor<B, 4>,
+        x: Tensor<4>,
         pl: SplitProgressListener<PL>,
-    ) -> Vec<Tensor<B, 4>>
+    ) -> Vec<Tensor<4>>
     where
         PL: ProgressListener,
     {
@@ -247,7 +237,7 @@ where
         );
 
         let x_pyramid_patches =
-            Tensor::<B, 4>::cat(vec![x0_patches, x1_patches, x2_patches.clone()], 0);
+            Tensor::<4>::cat(vec![x0_patches, x1_patches, x2_patches.clone()], 0);
 
         pl.update_message("encoding patches".into());
         let (pl_features, pl) = pl_next.split_range(0.95);

@@ -154,11 +154,17 @@ fn main() {
 
     let args = Args::parse();
 
-    let device = reconstruction::init_device();
+    let device = match reconstruction::init_device() {
+        Ok(device) => device,
+        Err(err) => {
+            println!("Failed to init device: {err}");
+            exit(1);
+        }
+    };
     let model_loader =
         depth_pro::DepthProModelLoader::new(&args.checkpoint_path, args.convert_checkpoints);
 
-    if let Err(err) = reconstruction::extract_depth::<reconstruction::EnabledBackend>(
+    if let Err(err) = reconstruction::extract_depth(
         &device,
         &model_loader,
         &args.img_src,
