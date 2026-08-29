@@ -53,6 +53,10 @@ jobs:
           features: fusion,autotune
         - arch: x86_64
           os: ubuntu
+          acceleration: cuda
+          features: bf16,fusion,autotune
+        - arch: x86_64
+          os: ubuntu
           acceleration: wgpu-spirv
           features: fusion
         - arch: x86_64
@@ -164,6 +168,9 @@ jobs:
         - arch: x86_64
           acceleration: cuda
           features: fusion,autotune
+        - arch: x86_64
+          acceleration: cuda
+          features: bf16,fusion,autotune
 
     steps:
     - uses: actions/checkout@v6
