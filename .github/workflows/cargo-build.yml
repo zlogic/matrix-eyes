@@ -115,14 +115,14 @@ jobs:
     - name: Install CUDA
       if: matrix.acceleration == 'cuda'
       run: |
-        curl -LOJ https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+        curl -LOJ https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2604/x86_64/cuda-keyring_1.1-1_all.deb
         sudo dpkg -i cuda-keyring_1.1-1_all.deb
         sudo apt-get update
-        sudo apt-get -y install cuda-compiler-12-8 cuda-libraries-dev-12-8 cudnn
-        echo "/usr/local/cuda-12.8/bin" >> $GITHUB_PATH
-        echo "LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" >> $GITHUB_ENV
+        sudo apt-get -y install cuda-compiler-13-3 cuda-libraries-dev-13-3 cudnn
+        echo "/usr/local/cuda-13-3/bin" >> $GITHUB_PATH
+        echo "LD_LIBRARY_PATH=/usr/local/cuda-13-3/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" >> $GITHUB_ENV
         echo "CUDA_COMPUTE_CAP=75" >> $GITHUB_ENV
-        echo "CUDA_PATH=/usr/local/cuda-12.8" >> $GITHUB_ENV
+        echo "CUDA_PATH=/usr/local/cuda-13.3" >> $GITHUB_ENV
 
     - name: Build
       run: cargo build --target=${{ matrix.arch }}-unknown-linux-gnu --no-default-features --features=$FEATURES --release
@@ -206,16 +206,16 @@ jobs:
     - name: Install CUDA
       if: matrix.acceleration == 'cuda'
       run: |
-        Invoke-WebRequest https://developer.download.nvidia.com/compute/cuda/12.8.1/network_installers/cuda_12.8.1_windows_network.exe -OutFile cuda_12.8.1_windows_network.exe
-        $FileHash = Get-FileHash cuda_12.8.1_windows_network.exe -Algorithm MD5
-        if ($FileHash.Hash -ne "96911b8d667218e610f7f720b6c5579b") {
+        Invoke-WebRequest https://developer.download.nvidia.com/compute/cuda/13.3.1/network_installers/cuda_13.3.1_windows_network.exe -OutFile cuda_13.3.1_windows_network.exe
+        $FileHash = Get-FileHash cuda_13.3.1_windows_network.exe -Algorithm MD5
+        if ($FileHash.Hash -ne "c7ad7bdbb732eb32002061d823bf8624") {
           Write-Error "Download hash mismatch" -ErrorAction Stop
         }
-        Start-Process -FilePath .\cuda_12.8.1_windows_network.exe -ArgumentList "-s nvcc_12.8 cudart_12.8 nvrtc_12.8 nvrtc_dev_12.8" -Wait -NoNewWindow
-        echo "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        Start-Process -FilePath .\cuda_13.3.1_windows_network.exe -ArgumentList "-s nvcc_13.3 cudart_13.3 nvrtc_13.3 nvrtc_dev_13.3 crt_13.3" -Wait -NoNewWindow
+        echo "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "C:\Program Files\Microsoft Visual Studio\18\Enterprise" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "CUDA_COMPUTE_CAP=75" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        echo "CUDA_PATH=C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.8" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "CUDA_PATH=C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.3" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         $version = Get-Content "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt" -Raw
         $version = $version.Trim()
         echo "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\$version\bin\HostX64\x64" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
@@ -237,11 +237,11 @@ jobs:
       run: |
         New-Item -Path . -Name "cuda" -ItemType "directory"
         New-Item -Path "cuda" -Name "include" -ItemType "directory"
-        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\bin\nvrtc64_120_0.dll" -Destination "cuda"
-        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\bin\nvrtc-builtins64_128.dll" -Destination "cuda"
-        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\include\*.*" -Destination "cuda\include"
-        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\include\crt" -Destination "cuda\include\crt" -Recurse
-        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\include\cooperative_groups" "cuda\include\cooperative_groups" -Recurse
+        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\bin\x64\nvrtc64_130_0.dll" -Destination "cuda"
+        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\bin\x64\nvrtc-builtins64_133.dll" -Destination "cuda"
+        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\include\*.*" -Destination "cuda\include"
+        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\include\crt" "cuda\include\crt" -Recurse
+        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\include\cooperative_groups" "cuda\include\cooperative_groups" -Recurse
         Compress-Archive -Path .\cuda\* -DestinationPath cuda-${{ runner.os }}-${{ matrix.arch }}-burn.zip
 
     - name: Upload CUDA
