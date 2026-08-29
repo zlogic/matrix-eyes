@@ -32,20 +32,7 @@ pub fn init_device() -> Result<Device, DeviceError> {
 
 #[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
 pub fn init_device() -> Result<Device, DeviceError> {
-    #[cfg(feature = "wgpu-spirv")]
-    type WgpuApi = burn::backend::wgpu::graphics::Vulkan;
-
-    #[cfg(feature = "wgpu-metal")]
-    type WgpuApi = burn::backend::wgpu::graphics::Metal;
-
-    let device = burn::backend::wgpu::WgpuDevice::DefaultDevice;
-    let runtime_options = burn::backend::wgpu::RuntimeOptions {
-        tasks_max: 1,
-        memory_config: Default::default(),
-    };
-    burn::backend::wgpu::init_setup::<WgpuApi>(&device, runtime_options);
-    let device = Device::new(device);
-    configure_device(device)
+    configure_device(Device::wgpu(burn::tensor::DeviceKind::DefaultDevice))
 }
 
 #[cfg(feature = "cuda")]
