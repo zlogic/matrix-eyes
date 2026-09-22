@@ -46,11 +46,15 @@ jobs:
         - arch: x86_64
           os: ubuntu
           acceleration: cuda
-          features: bf16,fusion
+          features: f16,fusion
         - arch: x86_64
           os: ubuntu
           acceleration: cuda
           features: fusion,autotune
+        - arch: x86_64
+          os: ubuntu
+          acceleration: cuda
+          features: f16,fusion,autotune
         - arch: x86_64
           os: ubuntu
           acceleration: wgpu-spirv
@@ -118,7 +122,7 @@ jobs:
         curl -LOJ https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2604/x86_64/cuda-keyring_1.1-1_all.deb
         sudo dpkg -i cuda-keyring_1.1-1_all.deb
         sudo apt-get update
-        sudo apt-get -y install cuda-compiler-13-3 cuda-libraries-dev-13-3 cudnn
+        sudo apt-get -y install cuda-compiler-13-3 cuda-libraries-dev-13-3
         echo "/usr/local/cuda-13-3/bin" >> $GITHUB_PATH
         echo "LD_LIBRARY_PATH=/usr/local/cuda-13-3/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" >> $GITHUB_ENV
         echo "CUDA_COMPUTE_CAP=75" >> $GITHUB_ENV
@@ -160,10 +164,13 @@ jobs:
           features: fusion
         - arch: x86_64
           acceleration: cuda
-          features: bf16,fusion
+          features: f16,fusion
         - arch: x86_64
           acceleration: cuda
           features: fusion,autotune
+        - arch: x86_64
+          acceleration: cuda
+          features: f16,fusion,autotune
 
     steps:
     - uses: actions/checkout@v6
@@ -211,7 +218,7 @@ jobs:
         if ($FileHash.Hash -ne "c7ad7bdbb732eb32002061d823bf8624") {
           Write-Error "Download hash mismatch" -ErrorAction Stop
         }
-        Start-Process -FilePath .\cuda_13.3.1_windows_network.exe -ArgumentList "-s nvcc_13.3 cudart_13.3 nvrtc_13.3 nvrtc_dev_13.3 crt_13.3" -Wait -NoNewWindow
+        Start-Process -FilePath .\cuda_13.3.1_windows_network.exe -ArgumentList "-s cudart_13.3 nvvm_13.3" -Wait -NoNewWindow
         echo "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "C:\Program Files\Microsoft Visual Studio\18\Enterprise" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "CUDA_COMPUTE_CAP=75" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -233,15 +240,11 @@ jobs:
         path: matrix-eyes-*.zip
 
     - name: Package CUDA dependencies
-      if: matrix.acceleration == 'cuda'
+      if: false # matrix.acceleration == 'cuda'
       run: |
         New-Item -Path . -Name "cuda" -ItemType "directory"
-        New-Item -Path "cuda" -Name "include" -ItemType "directory"
-        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\bin\x64\nvrtc64_130_0.dll" -Destination "cuda"
-        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\bin\x64\nvrtc-builtins64_133.dll" -Destination "cuda"
-        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\include\*.*" -Destination "cuda\include"
-        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\include\crt" "cuda\include\crt" -Recurse
-        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\include\cooperative_groups" "cuda\include\cooperative_groups" -Recurse
+        New-Item -Path "cuda" -Name "nvvm" -ItemType "directory"
+        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\nvvm\libdevice" -Destination "cuda\nvvm\libdevice" -Recurse
         Compress-Archive -Path .\cuda\* -DestinationPath cuda-${{ runner.os }}-${{ matrix.arch }}-burn.zip
 
     - name: Upload CUDA
