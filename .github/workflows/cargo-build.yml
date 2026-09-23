@@ -41,22 +41,6 @@ jobs:
         include:
         - arch: x86_64
           os: ubuntu
-          acceleration: cuda
-          features: fusion
-        - arch: x86_64
-          os: ubuntu
-          acceleration: cuda
-          features: f16,fusion
-        - arch: x86_64
-          os: ubuntu
-          acceleration: cuda
-          features: fusion,autotune
-        - arch: x86_64
-          os: ubuntu
-          acceleration: cuda
-          features: f16,fusion,autotune
-        - arch: x86_64
-          os: ubuntu
           acceleration: wgpu-spirv
           features: fusion
         - arch: x86_64
@@ -71,6 +55,18 @@ jobs:
           os: ubuntu
           acceleration: wgpu-spirv
           features: f16,fusion,autotune
+        - arch: x86_64
+          os: ubuntu
+          acceleration: cuda
+          features: fusion
+        - arch: x86_64
+          os: ubuntu
+          acceleration: cuda
+          features: f16,fusion
+        - arch: x86_64
+          os: ubuntu
+          acceleration: cuda
+          features: fusion,autotune
 
     steps:
     - uses: actions/checkout@v6
@@ -149,17 +145,17 @@ jobs:
         include:
         - arch: x86_64
           acceleration: wgpu-spirv
-          features: fusion,autotune
-        - arch: x86_64
-          acceleration: wgpu-spirv
-          features: f16,fusion,autotune
-        - arch: x86_64
-          acceleration: wgpu-spirv
           features: fusion
         - arch: x86_64
           acceleration: wgpu-spirv
           features: f16,fusion
         - arch: x86_64
+          acceleration: wgpu-spirv
+          features: fusion,autotune
+        - arch: x86_64
+          acceleration: wgpu-spirv
+          features: f16,fusion,autotune
+        - arch: x86_64
           acceleration: cuda
           features: fusion
         - arch: x86_64
@@ -168,9 +164,6 @@ jobs:
         - arch: x86_64
           acceleration: cuda
           features: fusion,autotune
-        - arch: x86_64
-          acceleration: cuda
-          features: f16,fusion,autotune
 
     steps:
     - uses: actions/checkout@v6
