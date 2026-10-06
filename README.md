@@ -41,7 +41,7 @@ The following versions are available:
   * wgpu-spirv-fusion-autotune (vendor-neutral GPU version with fusion and autotune enabled, fails to run on a GPU with 8GB of VRAM)
   * wgpu-spirv-autotune (vendor-neutral GPU version with autotune enabled, fails to run on a GPU with 8GB of VRAM)
   * wgpu-spirv-fusion (vendor-neutral GPU version with fusion enabled, runs on a GPU with 8GB of VRAM, performance comparable to candle-cuda)
-  * cuda-bf16-fusion (CUDA version with bf16 precision and fusion enabled, runs on a GPU with 8GB of VRAM)
+  * cuda-f16-fusion (CUDA version with f16 precision and fusion enabled, runs on a GPU with 8GB of VRAM)
   * cuda-fusion-autotune (CUDA version with fusion and autotune enabled, fails to run on a GPU with 8GB of VRAM)
   * cuda-fusion (CUDA version with fusion enabled, runs on a GPU with 8GB of VRAM)
 * Ubuntu
@@ -50,7 +50,7 @@ The following versions are available:
   * wgpu-spirv-fusion-autotune (vendor-neutral GPU version with fusion and autotune enabled, fails to run on a GPU with 8GB of VRAM)
   * wgpu-spirv-autotune (vendor-neutral GPU version with autotune enabled, fails to run on a GPU with 8GB of VRAM)
   * wgpu-spirv-fusion (vendor-neutral GPU version with fusion enabled, runs on a GPU with 8GB of VRAM, performance comparable to candle-cuda)
-  * cuda-bf16-fusion (CUDA version with bf16 precision and fusion enabled, runs on a GPU with 8GB of VRAM)
+  * cuda-f16-fusion (CUDA version with f16 precision and fusion enabled, runs on a GPU with 8GB of VRAM)
   * cuda-fusion-autotune (CUDA version with fusion and autotune enabled, fails to run on a GPU with 8GB of VRAM)
   * cuda-fusion (CUDA version with fusion enabled, runs on a GPU with 8GB of VRAM)
 * macOS
