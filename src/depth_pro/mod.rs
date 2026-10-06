@@ -195,7 +195,7 @@ impl DepthProModelLoader {
                         format!("{filename}-{suffix}")
                     }),
             )
-            .with_extension("mpk")
+            .with_extension("bpk")
             .to_path_buf();
 
         if converted_filename.exists() {
