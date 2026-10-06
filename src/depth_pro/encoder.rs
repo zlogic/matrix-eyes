@@ -117,13 +117,11 @@ impl DepthProEncoder {
         let [_b, _c, h, w] = x.dims();
         let x1 = interpolate(
             x.clone(),
-            [w / 2, h / 2],
-            InterpolateOptions::new(INTERPOLATE_MODE),
+            InterpolateOptions::new(INTERPOLATE_MODE).with_output_size([w / 2, h / 2]),
         );
         let x2 = interpolate(
             x.clone(),
-            [w / 4, h / 4],
-            InterpolateOptions::new(INTERPOLATE_MODE),
+            InterpolateOptions::new(INTERPOLATE_MODE).with_output_size([w / 4, h / 4]),
         );
         let x0 = x;
         (x0, x1, x2)

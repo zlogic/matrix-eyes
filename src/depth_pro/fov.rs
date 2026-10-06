@@ -46,7 +46,10 @@ impl FOVNetwork {
         let (pl, pl_next) = pl.split_range(0.01);
         let [_b, _c, h, w] = x.dims();
         pl.update_message("interpolating image".into());
-        let x = interpolate(x, [w / 4, h / 4], InterpolateOptions::new(INTERPOLATE_MODE));
+        let x = interpolate(
+            x,
+            InterpolateOptions::new(INTERPOLATE_MODE).with_output_size([w / 4, h / 4]),
+        );
         pl.report_status(1.0);
         pl.update_message("encoding fov".into());
         let (pl_encoder, pl) = pl_next.split_range(0.8);
