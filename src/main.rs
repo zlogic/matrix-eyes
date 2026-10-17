@@ -14,7 +14,8 @@ pub struct Args {
     focal_length: Option<f32>,
     checkpoint_path: String,
     convert_checkpoints: bool,
-    float_type: FloatType,
+    acceleration: reconstruction::Acceleration,
+    float_type: reconstruction::FloatType,
     output_format: ImageOutputFormat,
     vertex_mode: VertexMode,
     img_src: String,
@@ -33,15 +34,22 @@ Options:\
 \n      --stereo-amplitude=<AMPLITUDE>      Custom scale for stereogram output [default: 0.0625]\
 \n      --mesh=<MESH>                       Mesh options [default: vertex-colors] [possible values: plain, vertex-colors, texture-coordinates]\
 \n      --convert-checkpoints               Convert checkpoints into a more efficient format [default: disabled]\
+\n      --acceleration=<wgpu|cpu|cuda>      Specify the hardware acceleration to use [default: wgpu]\
 \n      --precision=<f16|f32>               Specify f16 or f32 precision for processing (f16 uses less memory) [default: f16]\
 \n      --help                              Print help";
 
 impl Args {
     fn parse() -> Args {
+        let acceleration = cfg_select! {
+            any(feature = "wgpu-spirv", feature = "wgpu-metal") => reconstruction::Acceleration::Wgpu,
+            feature = "cuda" => reconstruction::Acceleration::Cuda,
+            feature = "flex" => reconstruction::Acceleration::Cpu,
+        };
         let mut args = Args {
             focal_length: None,
             checkpoint_path: "./checkpoints/depth_pro.pt".to_string(),
             convert_checkpoints: false,
+            acceleration,
             float_type: FloatType::F16,
             output_format: ImageOutputFormat::DepthMap,
             vertex_mode: VertexMode::Color,
@@ -68,7 +76,21 @@ impl Args {
                     println!("{USAGE_INSTRUCTIONS}");
                     exit(2);
                 };
-                if name == "--precision" {
+                if name == "--acceleration" {
+                    args.acceleration = match value.to_lowercase().as_str() {
+                        #[cfg(feature = "flex")]
+                        "cpu" => reconstruction::Acceleration::Cpu,
+                        #[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
+                        "wgpu" => reconstruction::Acceleration::Wgpu,
+                        #[cfg(feature = "cuda")]
+                        "cuda" => reconstruction::Acceleration::Cuda,
+                        _ => {
+                            eprintln!("Unsupported acceleration mode {value}");
+                            println!("{USAGE_INSTRUCTIONS}");
+                            exit(2)
+                        }
+                    };
+                } else if name == "--precision" {
                     args.float_type = match value.to_lowercase().as_str() {
                         "f16" => FloatType::F16,
                         "f32" => FloatType::F32,
@@ -168,7 +190,7 @@ fn main() {
 
     let args = Args::parse();
 
-    let device = match reconstruction::init_device(args.float_type) {
+    let device = match args.acceleration.init_device(args.float_type) {
         Ok(device) => device,
         Err(err) => {
             println!("Failed to init device: {err}");

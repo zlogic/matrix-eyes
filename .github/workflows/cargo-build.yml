@@ -41,19 +41,11 @@ jobs:
         include:
         - arch: x86_64
           os: ubuntu
-          acceleration: wgpu-spirv
+          acceleration: wgpu-spirv,cuda
           features: fusion
         - arch: x86_64
           os: ubuntu
-          acceleration: wgpu-spirv
-          features: fusion,autotune
-        - arch: x86_64
-          os: ubuntu
-          acceleration: cuda
-          features: fusion
-        - arch: x86_64
-          os: ubuntu
-          acceleration: cuda
+          acceleration: wgpu-spirv,cuda
           features: fusion,autotune
 
     steps:
@@ -67,10 +59,10 @@ jobs:
       id: set-features-env
       run: |
         FEATURES=${{ matrix.acceleration }}
-        ARTIFACT_FEATURES=${{ matrix.acceleration }}
+        ARTIFACT_FEATURES=""
         if [ -n "${{ matrix.features }}" ]; then
           FEATURES+=",${{ matrix.features }}"
-          ARTIFACT_FEATURES+="-$( printf "${{ matrix.features }}" | sed s/,/-/g )"
+          ARTIFACT_FEATURES="$( printf "${{ matrix.features }}" | sed s/,/-/g )"
         fi
         echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         echo "ARTIFACT_FEATURES=$ARTIFACT_FEATURES" >> $GITHUB_ENV
@@ -100,18 +92,6 @@ jobs:
         echo "CFLAGS=-march=armv8.2-a" >> $GITHUB_ENV
         echo "CXXFLAGS=-march=armv8.2-a" >> $GITHUB_ENV
 
-    - name: Install CUDA
-      if: matrix.acceleration == 'cuda'
-      run: |
-        curl -LOJ https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2604/x86_64/cuda-keyring_1.1-1_all.deb
-        sudo dpkg -i cuda-keyring_1.1-1_all.deb
-        sudo apt-get update
-        sudo apt-get -y install cuda-compiler-13-3 cuda-libraries-dev-13-3
-        echo "/usr/local/cuda-13-3/bin" >> $GITHUB_PATH
-        echo "LD_LIBRARY_PATH=/usr/local/cuda-13-3/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" >> $GITHUB_ENV
-        echo "CUDA_COMPUTE_CAP=75" >> $GITHUB_ENV
-        echo "CUDA_PATH=/usr/local/cuda-13.3" >> $GITHUB_ENV
-
     - name: Build
       run: cargo build --target=${{ matrix.arch }}-unknown-linux-gnu --no-default-features --features=$FEATURES --release
 
@@ -132,16 +112,10 @@ jobs:
       matrix:
         include:
         - arch: x86_64
-          acceleration: wgpu-spirv
+          acceleration: wgpu-spirv,cuda
           features: fusion
         - arch: x86_64
-          acceleration: wgpu-spirv
-          features: fusion,autotune
-        - arch: x86_64
-          acceleration: cuda
-          features: fusion
-        - arch: x86_64
-          acceleration: cuda
+          acceleration: wgpu-spirv,cuda
           features: fusion,autotune
 
     steps:
@@ -157,11 +131,11 @@ jobs:
       id: set-features-env
       run: |
         $features = "${{ matrix.acceleration }}"
-        $artifact_features = "${{ matrix.acceleration }}"
+        $artifact_features = ""
         if ( "${{ matrix.features }}" )
         {
           $features += ",${{ matrix.features }}"
-          $artifact_features += "-${{ matrix.features }}" -replace ",", "-"
+          $artifact_features = "${{ matrix.features }}" -replace ",", "-"
         }
         echo "FEATURES=$features" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         echo "ARTIFACT_FEATURES=$artifact_features" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -182,23 +156,6 @@ jobs:
       if: matrix.arch == 'aarch64'
       run: rustup target add ${{ matrix.arch }}-pc-windows-msvc
 
-    - name: Install CUDA
-      if: matrix.acceleration == 'cuda'
-      run: |
-        Invoke-WebRequest https://developer.download.nvidia.com/compute/cuda/13.3.1/network_installers/cuda_13.3.1_windows_network.exe -OutFile cuda_13.3.1_windows_network.exe
-        $FileHash = Get-FileHash cuda_13.3.1_windows_network.exe -Algorithm MD5
-        if ($FileHash.Hash -ne "c7ad7bdbb732eb32002061d823bf8624") {
-          Write-Error "Download hash mismatch" -ErrorAction Stop
-        }
-        Start-Process -FilePath .\cuda_13.3.1_windows_network.exe -ArgumentList "-s cudart_13.3 nvvm_13.3" -Wait -NoNewWindow
-        echo "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        echo "C:\Program Files\Microsoft Visual Studio\18\Enterprise" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        echo "CUDA_COMPUTE_CAP=75" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        echo "CUDA_PATH=C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.3" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        $version = Get-Content "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt" -Raw
-        $version = $version.Trim()
-        echo "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\$version\bin\HostX64\x64" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
     - name: Build
       run: cargo build --target=${{ matrix.arch }}-pc-windows-msvc --no-default-features --features=$env:FEATURES --release
 
@@ -210,21 +167,6 @@ jobs:
       with:
         name: matrix-eyes-${{ runner.os }}-${{ matrix.arch }}-${{ steps.set-features-env.outputs.ARTIFACT_FEATURES }}
         path: matrix-eyes-*.zip
-
-    - name: Package CUDA dependencies
-      if: false # matrix.acceleration == 'cuda'
-      run: |
-        New-Item -Path . -Name "cuda" -ItemType "directory"
-        New-Item -Path "cuda" -Name "nvvm" -ItemType "directory"
-        Copy-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\nvvm\libdevice" -Destination "cuda\nvvm\libdevice" -Recurse
-        Compress-Archive -Path .\cuda\* -DestinationPath cuda-${{ runner.os }}-${{ matrix.arch }}-burn.zip
-
-    - name: Upload CUDA
-      uses: actions/upload-artifact@v7
-      if: false # matrix.acceleration == 'cuda'
-      with:
-        name: cuda-${{ runner.os }}-${{ matrix.arch }}
-        path: cuda-*.zip
 
   build-macos:
     runs-on: macos-latest
@@ -257,10 +199,10 @@ jobs:
       id: set-features-env
       run: |
         FEATURES=${{ matrix.acceleration }}
-        ARTIFACT_FEATURES=${{ matrix.acceleration }}
+        ARTIFACT_FEATURES=""
         if [ -n "${{ matrix.features }}" ]; then
           FEATURES+=",${{ matrix.features }}"
-          ARTIFACT_FEATURES+="-$( printf "${{ matrix.features }}" | sed s/,/-/g )"
+          ARTIFACT_FEATURES="$( printf "${{ matrix.features }}" | sed s/,/-/g )"
         fi
         echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         echo "ARTIFACT_FEATURES=$ARTIFACT_FEATURES" >> $GITHUB_ENV

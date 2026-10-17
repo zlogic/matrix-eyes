@@ -36,20 +36,16 @@ Download a copy of Matrix Eyes from [Releases](releases) and extract it into in 
 The following versions are available:
 
 * Windows
-  * wgpu-spirv-fusion (vendor-neutral GPU version with fusion enabled, runs on a GPU with 8GB of VRAM)
-  * wgpu-spirv-fusion-autotune (vendor-neutral GPU version with fusion and autotune enabled, runs on a GPU with 8GB of VRAM)
-  * cuda-fusion-autotune (CUDA version with fusion and autotune enabled, runs on a GPU with 8GB of VRAM)
-  * cuda-fusion (CUDA version with fusion enabled, runs on a GPU with 8GB of VRAM)
+  * fusion (fusion enabled, runs on a GPU with 8GB of VRAM, supports vendor-neutral GPU and CUDA acceleration)
+  * fusion-autotune (fusion and autotune enabled, runs on a GPU with 8GB of VRAM, supports vendor-neutral GPU and CUDA acceleration)
 * Ubuntu
-  * wgpu-spirv-fusion-autotune (vendor-neutral GPU version with fusion and autotune enabled, runs on a GPU with 8GB of VRAM)
-  * wgpu-spirv-fusion (vendor-neutral GPU version with fusion enabled, runs on a GPU with 8GB of VRAM)
-  * cuda-fusion-autotune (CUDA version with fusion and autotune enabled, runs on a GPU with 8GB of VRAM)
-  * cuda-fusion (CUDA version with fusion enabled, runs on a GPU with 8GB of VRAM)
+  * fusion-autotune (fusion and autotune enabled, runs on a GPU with 8GB of VRAM, supports vendor-neutral GPU and CUDA acceleration)
+  * fusion (fusion enabled, runs on a GPU with 8GB of VRAM, supports vendor-neutral GPU and CUDA acceleration)
 * macOS
-  * wgpu-metal-fusion-autotune (wgpu version with fusion and autotune enabled, uses 4 GB when running)
-  * wgpu-metal-fusion (wgpu version with fusion with fusion enabled, uses 3 GB when running)
+  * fusion-autotune (wgpu version with fusion and autotune enabled, uses 4 GB when running)
+  * fusion (wgpu version with fusion with fusion enabled, uses 3 GB when running)
 
-For the Windows `cuda` version, download the [Burn CUDA libraries](https://github.com/zlogic/matrix-eyes/releases/download/0.1.4/cuda-Windows-x86_64-burn.zip) artifact and extract its contents into the same directory. Set the `CUDA_PATH` environment variable to the path where you've extracted matrix-eyes and the Burn CUDA libraries artifact.
+To use CUDA acceleration in Windows, download the [Burn CUDA libraries](https://github.com/zlogic/matrix-eyes/releases/download/0.1.4/cuda-Windows-x86_64-burn.zip) artifact and extract its contents into the same directory. Set the `CUDA_PATH` environment variable to the path where you've extracted matrix-eyes and the Burn CUDA libraries artifact.
 
 Download the model checkpoints:
 
@@ -63,7 +59,7 @@ curl -LJ -o checkpoints/depth_pro.pt https://ml-site.cdn-apple.com/models/depth-
 To gerate a depth image, run:
 
 ```shell
-matrix-eyes [--focal-length=<focal-length>] [--checkpoint-path=<checkpoint-path>] [--image-output-format=<depthmap|stereogram>] [--resize-scale=<scale>] [--stereo-amplitude=<amplitude>] [--mesh=<plain|vertex-colors|texture-coordinates>] [--convert-checkpoints] [--precision=<f16|f32>] <source> <output>
+matrix-eyes [--focal-length=<focal-length>] [--checkpoint-path=<checkpoint-path>] [--image-output-format=<depthmap|stereogram>] [--resize-scale=<scale>] [--stereo-amplitude=<amplitude>] [--mesh=<plain|vertex-colors|texture-coordinates>] [--convert-checkpoints] [--acceleration=<wgpu|cuda|cpu>] [--precision=<f16|f32>] <source> <output>
 ```
 
 `--focal-length=<focal-length>` is an optional argument to specify a custom focal length for images with perspective projection, for example, `--focal-length=26`;
@@ -84,6 +80,9 @@ This can help with making noise pixels large enough to be visible.
 `plain` (the default option) outputs the mesh without any color or texture, `vertex-colors` outputs the mesh with colors assigned to every vertex, and `texture-coordinates` will add texture coordinates.
 
 `--convert-checkpoints` will convert checkpoints from a `.pt` (Python pickle) format into a more efficient Burn format.
+
+`--acceleration=<wgpu|cuda|cpu>` is an optional argument to specify which hardware/acceleration framework to use, for example `--acceleration=wgpu`.
+`cuda` only works in Linux and Windows versions and requires a CUDA-compatible GPU, while `wgpu` and `cpu` run on all platforms.
 
 `--precision=<f16|f32>` is an optional argument to specify floating point precision, for example `--precision=f32`.
 If not specified, f16 precision will be used, as it uses less VRAM and produces results almost identical to f32.

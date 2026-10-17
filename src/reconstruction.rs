@@ -26,22 +26,32 @@ impl FloatType {
     }
 }
 
-#[cfg(feature = "flex")]
-pub fn init_device(float_type: FloatType) -> Result<Device, DeviceError> {
-    configure_device(Device::flex(), float_type)
+#[derive(Debug)]
+pub enum Acceleration {
+    #[cfg(feature = "flex")]
+    Cpu,
+    #[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
+    Wgpu,
+    #[cfg(feature = "cuda")]
+    Cuda,
 }
 
-#[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
-pub fn init_device(float_type: FloatType) -> Result<Device, DeviceError> {
-    configure_device(
-        Device::wgpu(burn::tensor::DeviceKind::DefaultDevice),
-        float_type,
-    )
-}
-
-#[cfg(feature = "cuda")]
-pub fn init_device(float_type: FloatType) -> Result<Device, DeviceError> {
-    configure_device(Device::cuda(burn::tensor::DeviceIndex::Default), float_type)
+impl Acceleration {
+    pub fn init_device(self, float_type: FloatType) -> Result<Device, DeviceError> {
+        match self {
+            #[cfg(feature = "flex")]
+            Self::Cpu => configure_device(Device::flex(), float_type),
+            #[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
+            Self::Wgpu => configure_device(
+                Device::wgpu(burn::tensor::DeviceKind::DefaultDevice),
+                float_type,
+            ),
+            #[cfg(feature = "cuda")]
+            Self::Cuda => {
+                configure_device(Device::cuda(burn::tensor::DeviceIndex::Default), float_type)
+            }
+        }
+    }
 }
 
 fn configure_device(mut device: Device, float_type: FloatType) -> Result<Device, DeviceError> {
