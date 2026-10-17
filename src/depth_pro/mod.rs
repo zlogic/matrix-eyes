@@ -186,13 +186,18 @@ impl DepthProModelLoader {
             .add_pattern("^fov.encoder\\.1\\.(.+)", "fov.encoder.linear.$1")
             .map_err(|_| LoaderError::Regex)?;
         let converted_filename = Path::new(&self.checkpoint_path);
+        let float_type_name = match dtype {
+            DType::F32 => "f32",
+            DType::F16 => "f16",
+            _ => return Err(LoaderError::UnsupportedDType(dtype)),
+        };
         let converted_filename = converted_filename
             .with_file_name(
                 converted_filename
                     .file_stem()
                     .and_then(|filename| filename.to_str())
                     .map_or(suffix.to_string(), |filename| {
-                        format!("{filename}-{suffix}")
+                        format!("{filename}-{suffix}-{float_type_name}")
                     }),
             )
             .with_extension("bpk")
@@ -396,6 +401,7 @@ pub enum LoaderError {
     RecorderErrors(Vec<burn::store::ApplyError>),
     RecorderMissing(Vec<(String, String)>),
     Pytorch(burn::store::PytorchStoreError),
+    UnsupportedDType(DType),
 }
 
 impl fmt::Display for LoaderError {
@@ -426,6 +432,7 @@ impl fmt::Display for LoaderError {
                 Ok(())
             }
             Self::Pytorch(ref err) => write!(f, "PyTorch store error: {err}"),
+            Self::UnsupportedDType(dtype) => write!(f, "Unsupported DType: {dtype:?}"),
         }
     }
 }
@@ -438,6 +445,7 @@ impl std::error::Error for LoaderError {
             Self::RecorderErrors(ref _errs) => None,
             Self::RecorderMissing(ref _items) => None,
             Self::Pytorch(ref err) => Some(err),
+            Self::UnsupportedDType(ref _dtype) => None,
         }
     }
 }

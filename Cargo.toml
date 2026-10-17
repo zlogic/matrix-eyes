@@ -23,8 +23,6 @@ flex = ["burn/flex"]
 wgpu-metal = ["burn/metal"]
 wgpu-spirv = ["burn/vulkan"]
 cuda = ["burn/cuda"]
-f16 = []
-bf16 = []
 
 [profile.release]
 strip = true

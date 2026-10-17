@@ -3,6 +3,7 @@
 use std::{env, process::exit};
 
 use output::{ImageOutputFormat, VertexMode};
+use reconstruction::FloatType;
 
 mod depth_pro;
 mod output;
@@ -13,6 +14,7 @@ pub struct Args {
     focal_length: Option<f32>,
     checkpoint_path: String,
     convert_checkpoints: bool,
+    float_type: FloatType,
     output_format: ImageOutputFormat,
     vertex_mode: VertexMode,
     img_src: String,
@@ -31,6 +33,7 @@ Options:\
 \n      --stereo-amplitude=<AMPLITUDE>      Custom scale for stereogram output [default: 0.0625]\
 \n      --mesh=<MESH>                       Mesh options [default: vertex-colors] [possible values: plain, vertex-colors, texture-coordinates]\
 \n      --convert-checkpoints               Convert checkpoints into a more efficient format [default: disabled]\
+\n      --precision=<f16|f32>               Specify f16 or f32 precision for processing (f16 uses less memory) [default: f16]\
 \n      --help                              Print help";
 
 impl Args {
@@ -39,6 +42,7 @@ impl Args {
             focal_length: None,
             checkpoint_path: "./checkpoints/depth_pro.pt".to_string(),
             convert_checkpoints: false,
+            float_type: FloatType::F16,
             output_format: ImageOutputFormat::DepthMap,
             vertex_mode: VertexMode::Color,
             img_src: "".to_string(),
@@ -64,7 +68,17 @@ impl Args {
                     println!("{USAGE_INSTRUCTIONS}");
                     exit(2);
                 };
-                if name == "--focal-length" {
+                if name == "--precision" {
+                    args.float_type = match value.to_lowercase().as_str() {
+                        "f16" => FloatType::F16,
+                        "f32" => FloatType::F32,
+                        _ => {
+                            eprintln!("Unsupported precision format {value}");
+                            println!("{USAGE_INSTRUCTIONS}");
+                            exit(2)
+                        }
+                    };
+                } else if name == "--focal-length" {
                     args.focal_length = match value.parse() {
                         Ok(focal_length) => Some(focal_length),
                         Err(err) => {
@@ -154,7 +168,7 @@ fn main() {
 
     let args = Args::parse();
 
-    let device = match reconstruction::init_device() {
+    let device = match reconstruction::init_device(args.float_type) {
         Ok(device) => device,
         Err(err) => {
             println!("Failed to init device: {err}");

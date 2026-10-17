@@ -3,54 +3,50 @@ use std::{
     fmt::{self, Write},
 };
 
-use burn::tensor::{Device, DeviceConfig, DeviceError, Float, FloatDType, Tensor, TensorData};
+use burn::tensor::{
+    DType, Device, DeviceConfig, DeviceError, Float, FloatDType, Tensor, TensorData,
+};
 use image::{DynamicImage, ImageDecoder, ImageReader, imageops};
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
 use crate::{depth_pro, output};
 
-#[cfg(feature = "f16")]
-pub type FloatType = burn::tensor::f16;
-#[cfg(feature = "bf16")]
-pub type FloatType = burn::tensor::bf16;
-#[cfg(not(any(feature = "f16", feature = "bf16")))]
-pub type FloatType = f32;
-
-#[cfg(any(feature = "f16", feature = "bf16"))]
-const fn from_f32(value: f32) -> FloatType {
-    FloatType::from_f32_const(value)
+#[derive(Debug, Clone, Copy)]
+pub enum FloatType {
+    F16,
+    F32,
 }
-#[cfg(not(any(feature = "f16", feature = "bf16")))]
-const fn from_f32(value: f32) -> FloatType {
-    value
+
+impl FloatType {
+    fn float_dtype(&self) -> FloatDType {
+        match self {
+            FloatType::F16 => FloatDType::F16,
+            FloatType::F32 => FloatDType::F32,
+        }
+    }
 }
 
 #[cfg(feature = "flex")]
-pub fn init_device() -> Result<Device, DeviceError> {
-    configure_device(Device::flex())
+pub fn init_device(float_type: FloatType) -> Result<Device, DeviceError> {
+    configure_device(Device::flex(), float_type)
 }
 
 #[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
-pub fn init_device() -> Result<Device, DeviceError> {
-    configure_device(Device::wgpu(burn::tensor::DeviceKind::DefaultDevice))
+pub fn init_device(float_type: FloatType) -> Result<Device, DeviceError> {
+    configure_device(
+        Device::wgpu(burn::tensor::DeviceKind::DefaultDevice),
+        float_type,
+    )
 }
 
 #[cfg(feature = "cuda")]
-pub fn init_device() -> Result<Device, DeviceError> {
-    configure_device(Device::cuda(burn::tensor::DeviceIndex::Default))
+pub fn init_device(float_type: FloatType) -> Result<Device, DeviceError> {
+    configure_device(Device::cuda(burn::tensor::DeviceIndex::Default), float_type)
 }
 
-fn configure_device(mut device: Device) -> Result<Device, DeviceError> {
-    let float_dtype = if cfg!(feature = "f16") {
-        FloatDType::F16
-    } else if cfg!(feature = "bf16") {
-        FloatDType::BF16
-    } else {
-        FloatDType::F32
-    };
-
+fn configure_device(mut device: Device, float_type: FloatType) -> Result<Device, DeviceError> {
     device.configure(DeviceConfig {
-        float_dtype: Some(float_dtype),
+        float_dtype: Some(float_type.float_dtype()),
         ..Default::default()
     })?;
     Ok(device)
@@ -69,8 +65,8 @@ impl SourceImage {
         device: &Device,
     ) -> Result<SourceImage, ReconstructionError> {
         const IMG_SIZE: usize = depth_pro::IMG_SIZE;
-        const MEAN: [FloatType; 3] = [from_f32(0.5), from_f32(0.5), from_f32(0.5)];
-        const STD: [FloatType; 3] = [from_f32(0.5), from_f32(0.5), from_f32(0.5)];
+        const MEAN: [f32; 3] = [0.5, 0.5, 0.5];
+        const STD: [f32; 3] = [0.5, 0.5, 0.5];
         let mut decoder = ImageReader::open(path)?.into_decoder()?;
         let focal_length_35mm = if let Some(focal_length) = focal_length_35mm {
             Some(focal_length)
@@ -91,13 +87,18 @@ impl SourceImage {
             )
             .into_rgb8();
         let data = img.into_raw();
+        let float_dtype = match device.settings().float_dtype {
+            FloatDType::F32 => DType::F32,
+            FloatDType::F16 => DType::F16,
+            _ => return Err("Unsupported device float DType".into()),
+        };
 
         let data = TensorData::new(data, [IMG_SIZE, IMG_SIZE, 3]);
-        let data = Tensor::<3, Float>::from_data(data.convert::<FloatType>(), device)
+        let data = Tensor::<3, Float>::from_data(data.try_cast(float_dtype)?, device)
             .permute([2, 0, 1])
             / 255.0;
-        let mean = TensorData::new(MEAN.to_vec(), [3, 1, 1]).convert::<FloatType>();
-        let std = TensorData::new(STD.to_vec(), [3, 1, 1]).convert::<FloatType>();
+        let mean = TensorData::new(MEAN.to_vec(), [3, 1, 1]).try_cast(float_dtype)?;
+        let std = TensorData::new(STD.to_vec(), [3, 1, 1]).try_cast(float_dtype)?;
         let mean = Tensor::<3>::from_data(mean, device);
         let std = Tensor::<3>::from_data(std, device);
         let img = ((data - mean) / std).unsqueeze();

@@ -46,15 +46,7 @@ jobs:
         - arch: x86_64
           os: ubuntu
           acceleration: wgpu-spirv
-          features: f16,fusion
-        - arch: x86_64
-          os: ubuntu
-          acceleration: wgpu-spirv
           features: fusion,autotune
-        - arch: x86_64
-          os: ubuntu
-          acceleration: wgpu-spirv
-          features: f16,fusion,autotune
         - arch: x86_64
           os: ubuntu
           acceleration: cuda
@@ -62,16 +54,7 @@ jobs:
         - arch: x86_64
           os: ubuntu
           acceleration: cuda
-          features: f16,fusion
-        - arch: x86_64
-          os: ubuntu
-          acceleration: cuda
           features: fusion,autotune
-        - arch: x86_64
-          os: ubuntu
-          acceleration: cuda
-          features: f16,fusion,autotune
-
 
     steps:
     - uses: actions/checkout@v6
@@ -153,25 +136,13 @@ jobs:
           features: fusion
         - arch: x86_64
           acceleration: wgpu-spirv
-          features: f16,fusion
-        - arch: x86_64
-          acceleration: wgpu-spirv
           features: fusion,autotune
-        - arch: x86_64
-          acceleration: wgpu-spirv
-          features: f16,fusion,autotune
         - arch: x86_64
           acceleration: cuda
           features: fusion
         - arch: x86_64
           acceleration: cuda
-          features: f16,fusion
-        - arch: x86_64
-          acceleration: cuda
           features: fusion,autotune
-        - arch: x86_64
-          acceleration: cuda
-          features: f16,fusion,autotune
 
     steps:
     - uses: actions/checkout@v6
@@ -267,25 +238,13 @@ jobs:
           features: fusion,autotune
         - arch: x86_64
           acceleration: wgpu-metal
-          features: f16,fusion,autotune
-        - arch: x86_64
-          acceleration: wgpu-metal
           features: fusion
-        - arch: x86_64
-          acceleration: wgpu-metal
-          features: f16,fusion
         - arch: aarch64
           acceleration: wgpu-metal
           features: fusion,autotune
         - arch: aarch64
           acceleration: wgpu-metal
-          features: f16,fusion,autotune
-        - arch: aarch64
-          acceleration: wgpu-metal
           features: fusion
-        - arch: aarch64
-          acceleration: wgpu-metal
-          features: f16,fusion
 
     steps:
     - uses: actions/checkout@v6
