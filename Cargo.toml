@@ -29,7 +29,3 @@ strip = true
 lto = true
 codegen-units = 1
 panic = "abort"
-
-# TODO: remove this workaround when https://github.com/tracel-ai/burn/issues/6095 is published
-[patch.crates-io]
-zip = { git = "https://github.com/zip-rs/zip.git", rev = "21a20584bc9e05dfa4f3c5b0bc420a1389fae2c3" }
