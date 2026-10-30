@@ -317,6 +317,8 @@ impl DepthProModelLoader {
         let canonical_inverse_depth = canonical_inverse_depth
             .squeeze_dim::<3>(0)
             .squeeze_dim::<2>(0);
+        let debug_depth = canonical_inverse_depth.clone().slice([100..105, 100..105]);
+        println!("Debug depth is {debug_depth}");
 
         let f_norm = if let Some(f_norm) = f_norm {
             f_norm
@@ -336,6 +338,8 @@ impl DepthProModelLoader {
         };
 
         let inverse_depth = canonical_inverse_depth.div_scalar(f_norm);
+        let debug_depth = inverse_depth.clone().slice([100..105, 100..105]);
+        println!("Debug depth is {debug_depth}");
         Ok(inverse_depth.clamp(1e-4, 1e4))
     }
 }
