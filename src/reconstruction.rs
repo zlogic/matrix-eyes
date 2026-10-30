@@ -3,9 +3,7 @@ use std::{
     fmt::{self, Write},
 };
 
-use burn::tensor::{
-    DType, Device, DeviceConfig, DeviceError, Float, FloatDType, Tensor, TensorData,
-};
+use burn::tensor::{DType, Device, DeviceConfig, Float, FloatDType, Tensor, TensorData};
 use image::{DynamicImage, ImageDecoder, ImageReader, imageops};
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
@@ -37,13 +35,22 @@ pub enum Acceleration {
 }
 
 impl Acceleration {
-    pub fn init_device(self, float_type: FloatType) -> Result<Device, DeviceError> {
+    pub fn init_device(self, float_type: FloatType) -> Result<Device, InitError> {
         match self {
             #[cfg(feature = "flex")]
             Self::Cpu => configure_device(Device::flex(), float_type),
-            #[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
+            #[cfg(feature = "wgpu-spirv")]
             Self::Wgpu => configure_device(
-                Device::wgpu(burn::tensor::DeviceKind::DefaultDevice),
+                Device::wgpu_options()
+                    .graphics_api(burn::backend::WgpuBackend::Vulkan)
+                    .tasks_max(1)
+                    .memory_config(burn::tensor::wgpu::MemoryConfiguration::ExclusivePages)
+                    .init()?,
+                float_type,
+            ),
+            #[cfg(feature = "wgpu-metal")]
+            Self::Wgpu => configure_device(
+                Device::metal(burn::tensor::DeviceKind::DefaultDevice),
                 float_type,
             ),
             #[cfg(feature = "cuda")]
@@ -54,7 +61,7 @@ impl Acceleration {
     }
 }
 
-fn configure_device(mut device: Device, float_type: FloatType) -> Result<Device, DeviceError> {
+fn configure_device(mut device: Device, float_type: FloatType) -> Result<Device, InitError> {
     device.configure(DeviceConfig {
         float_dtype: Some(float_type.float_dtype()),
         ..Default::default()
@@ -221,6 +228,46 @@ impl depth_pro::ProgressListener for ProgressReporter {
 impl Drop for ProgressReporter {
     fn drop(&mut self) {
         self.pb.finish_and_clear();
+    }
+}
+
+#[derive(Debug)]
+pub enum InitError {
+    Device(burn::tensor::DeviceError),
+    #[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
+    Wgpu(burn::tensor::wgpu::WgpuInitError),
+}
+
+impl fmt::Display for InitError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Self::Device(ref err) => write!(f, "Device error: {err}"),
+            #[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
+            Self::Wgpu(ref err) => write!(f, "WGPU init error: {err}"),
+        }
+    }
+}
+
+impl std::error::Error for InitError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match *self {
+            Self::Device(ref err) => Some(err),
+            #[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
+            Self::Wgpu(ref err) => Some(err),
+        }
+    }
+}
+
+impl From<burn::tensor::DeviceError> for InitError {
+    fn from(err: burn::tensor::DeviceError) -> InitError {
+        Self::Device(err)
+    }
+}
+
+#[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
+impl From<burn::tensor::wgpu::WgpuInitError> for InitError {
+    fn from(err: burn::tensor::wgpu::WgpuInitError) -> InitError {
+        Self::Wgpu(err)
     }
 }
 
