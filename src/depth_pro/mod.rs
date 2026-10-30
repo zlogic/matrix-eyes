@@ -9,7 +9,7 @@ use burn::{
     },
     store::{
         Applier, BurnpackStore, KeyRemapper, ModuleAdapter, ModuleContext, ModuleSnapshot,
-        ModuleStore, PyTorchToBurnAdapter, burn_pack::Tensor as PackTensor, pytorch::PytorchStore,
+        ModuleStore, PyTorchToBurnAdapter, StoreTensor, pytorch::PytorchStore,
     },
     tensor::{DType, Device, Tensor},
 };
@@ -126,18 +126,18 @@ impl HalfPrecisionAdapter {
 }
 
 impl ModuleAdapter for HalfPrecisionAdapter {
-    fn adapt(&self, tensor: PackTensor, _ctx: ModuleContext<'_>) -> PackTensor {
+    fn adapt(&self, tensor: StoreTensor, _ctx: ModuleContext<'_>) -> StoreTensor {
         // This is a custom version of Burn's HalfPrecisionAdapter.
         // It targets the actual DType instead of swapping between f32 and f16.
         let target_dtype = self.target_dtype;
-        if target_dtype == tensor.dtype {
+        if target_dtype == tensor.dtype() {
             return tensor.clone();
         }
         burn::store::bridge::map_data(
             tensor.clone(),
-            tensor.name.clone(),
+            tensor.name().into(),
             target_dtype,
-            tensor.shape.clone(),
+            tensor.shape().into(),
             move |data| data.convert_dtype(target_dtype),
         )
     }
@@ -211,7 +211,7 @@ impl DepthProModelLoader {
             let mut store =
                 PytorchStore::from_file(self.checkpoint_path.as_str()).remap(pytorch_remapper);
             // This is messy because PytorchStore doesn't have an easy way to convert f16 into f32.
-            let snapshots: Vec<PackTensor> = store.get_all_tensors()?.values().cloned().collect();
+            let snapshots: Vec<StoreTensor> = store.get_all_tensors()?.values().cloned().collect();
             let adapter = PyTorchToBurnAdapter.chain(HalfPrecisionAdapter::new(dtype));
             let mut applier = Applier::new(snapshots, None, Some(Box::new(adapter)), true);
             let model = model.map(&mut applier);
