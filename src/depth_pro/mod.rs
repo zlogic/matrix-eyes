@@ -11,7 +11,7 @@ use burn::{
         Applier, BurnpackStore, KeyRemapper, ModuleAdapter, ModuleContext, ModuleSnapshot,
         ModuleStore, PyTorchToBurnAdapter, StoreTensor, pytorch::PytorchStore,
     },
-    tensor::{DType, Device, FloatDType, Tensor},
+    tensor::{DType, Device, Tensor},
 };
 use decoder::{MultiresConvDecoder, MultiresConvDecoderConfig};
 use encoder::{DepthProEncoder, DepthProEncoderConfig};
@@ -243,12 +243,6 @@ impl DepthProModelLoader {
         const ENCODER_FEATURE_DIMS: [usize; 4] = [256, 512, 1024, 1024];
         const DECODER_FEATURES: usize = 256;
 
-        let float_dtype = match device.settings().float_dtype {
-            FloatDType::F32 => DType::F32,
-            FloatDType::F16 => DType::F16,
-            _ => return Err(ModelError::Internal("Unsupported device float DType")),
-        };
-
         let pl = SplitProgressListener {
             pl: pl.map(|pl| Arc::new(pl)),
             range: 0.0..1.0,
@@ -267,10 +261,9 @@ impl DepthProModelLoader {
             let encoder = PartEncoder { encoder };
             pl.update_message("loading encoder model".into());
             let encoder = self
-                .load_record(encoder, "encoder", float_dtype)
-                .map_err(|err| ModelError::InternalLoader("Failed to load depth model", err))?
+                .load_record(encoder, "encoder", img.dtype())
+                .map_err(|err| ModelError::Internal("Failed to load depth model", err))?
                 .encoder;
-            device.sync()?;
             pl.report_status(1.0);
             encoder.forward_encodings(img.clone(), pl_encoder)
         };
@@ -284,10 +277,9 @@ impl DepthProModelLoader {
             let decoder = PartDecoder { decoder };
             pl.update_message("loading decoder model".into());
             let decoder = self
-                .load_record(decoder, "decoder", float_dtype)
-                .map_err(|err| ModelError::InternalLoader("Failed to load decoder model", err))?
+                .load_record(decoder, "decoder", img.dtype())
+                .map_err(|err| ModelError::Internal("Failed to load decoder model", err))?
                 .decoder;
-            device.sync()?;
             pl.report_status(1.0);
             decoder.forward(encodings, pl_decoder)
         };
@@ -301,32 +293,23 @@ impl DepthProModelLoader {
             .init(device);
             let head = PartHead { head };
             pl.update_message("loading head".into());
-            device.sync()?;
-            device.memory_cleanup();
             let head = self
-                .load_record(head, "head", float_dtype)
-                .map_err(|err| ModelError::InternalLoader("Failed to load head model", err))?
+                .load_record(head, "head", img.dtype())
+                .map_err(|err| ModelError::Internal("Failed to load head model", err))?
                 .head;
-            device.sync()?;
             pl.report_status(0.05);
 
             pl.update_message("forwarding head".into());
 
             let features = head[0].forward(features);
-            device.sync()?;
             pl.report_status(0.3);
             let features = head[1].forward(features);
-            device.sync()?;
             pl.report_status(0.6);
             let features = head[2].forward(features);
-            device.sync()?;
             pl.report_status(0.8);
             let features = Relu::new().forward(features);
-            device.sync()?;
             pl.report_status(0.9);
-            device.sync()?;
             let features = head[3].forward(features);
-            device.sync()?;
             pl.report_status(0.95);
             Relu::new().forward(features)
         };
@@ -343,10 +326,9 @@ impl DepthProModelLoader {
             let (pl, pl_fov) = pl_fov.split_range(0.05);
             pl.update_message("loading fov".into());
             let fov = self
-                .load_record(fov, "fov", float_dtype)
-                .map_err(|err| ModelError::InternalLoader("Failed to load fov model", err))?
+                .load_record(fov, "fov", img.dtype())
+                .map_err(|err| ModelError::Internal("Failed to load fov model", err))?
                 .fov;
-            device.sync()?;
             pl.report_status(1.0);
 
             let fov_deg = fov.forward(img, features_0, pl_fov).into_scalar::<f32>();
@@ -482,17 +464,13 @@ impl From<burn::store::PytorchStoreError> for LoaderError {
 
 #[derive(Debug)]
 pub enum ModelError {
-    Internal(&'static str),
-    InternalLoader(&'static str, LoaderError),
-    Execution(burn::tensor::ExecutionError),
+    Internal(&'static str, LoaderError),
 }
 
 impl fmt::Display for ModelError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Self::Internal(msg) => f.write_str(msg),
-            Self::InternalLoader(msg, ref err) => write!(f, "Model error: {msg}: {err}"),
-            Self::Execution(ref err) => write!(f, "Execution error: {err}"),
+            Self::Internal(msg, ref err) => write!(f, "Model error: {msg}: {err}"),
         }
     }
 }
@@ -500,15 +478,7 @@ impl fmt::Display for ModelError {
 impl std::error::Error for ModelError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match *self {
-            Self::Internal(_msg) => None,
-            Self::InternalLoader(_msg, ref err) => Some(err),
-            Self::Execution(ref err) => Some(err),
+            Self::Internal(_msg, ref err) => Some(err),
         }
-    }
-}
-
-impl From<burn::tensor::ExecutionError> for ModelError {
-    fn from(e: burn::tensor::ExecutionError) -> ModelError {
-        Self::Execution(e)
     }
 }
