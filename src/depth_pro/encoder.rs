@@ -113,7 +113,9 @@ impl DepthProEncoderConfig {
 
 impl DepthProEncoder {
     fn create_pyramid(x: Tensor<4>) -> (Tensor<4>, Tensor<4>, Tensor<4>) {
-        const INTERPOLATE_MODE: InterpolateMode = InterpolateMode::Bilinear;
+        const INTERPOLATE_MODE: InterpolateMode = InterpolateMode::Bilinear {
+            coordinate_transform: burn::tensor::ops::CoordinateTransformMode::AlignCorners,
+        };
         let [_b, _c, h, w] = x.dims();
         let x1 = interpolate(
             x.clone(),

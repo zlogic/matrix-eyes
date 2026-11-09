@@ -42,7 +42,9 @@ impl FOVNetwork {
     where
         PL: ProgressListener,
     {
-        const INTERPOLATE_MODE: InterpolateMode = InterpolateMode::Bilinear;
+        const INTERPOLATE_MODE: InterpolateMode = InterpolateMode::Bilinear {
+            coordinate_transform: burn::tensor::ops::CoordinateTransformMode::AlignCorners,
+        };
         let (pl, pl_next) = pl.split_range(0.01);
         let [_b, _c, h, w] = x.dims();
         pl.update_message("interpolating image".into());
