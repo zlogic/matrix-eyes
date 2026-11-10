@@ -27,21 +27,22 @@ Arguments:\
 \n  <IMG_SRC>...  Source image\
 \n  <IMG_OUT>     Output image\n\n\
 Options:\
-\n      --focal-length=<FOCAL_LENGTH>       Focal length in 35mm equivalent\
-\n      --checkpoint-path=<CHECKPOINT_PATH> Path to checkpoint file [default: ./checkpoints/depth_pro.pt]\
-\n      --image-output-format=<FORMAT>      Format for output [default: depthmap] [possible values: depthmap, stereogram]\
-\n      --resize-scale=<SCALE>              Custom scale for stereogram output [default: 1.0]\
-\n      --stereo-amplitude=<AMPLITUDE>      Custom scale for stereogram output [default: 0.0625]\
-\n      --mesh=<MESH>                       Mesh options [default: vertex-colors] [possible values: plain, vertex-colors, texture-coordinates]\
-\n      --convert-checkpoints               Convert checkpoints into a more efficient format [default: disabled]\
-\n      --acceleration=<wgpu|cpu|cuda>      Specify the hardware acceleration to use [default: wgpu]\
-\n      --precision=<f16|f32>               Specify f16 or f32 precision for processing (f16 uses less memory) [default: f16]\
-\n      --help                              Print help";
+\n      --focal-length=<FOCAL_LENGTH>           Focal length in 35mm equivalent\
+\n      --checkpoint-path=<CHECKPOINT_PATH>     Path to checkpoint file [default: ./checkpoints/depth_pro.pt]\
+\n      --image-output-format=<FORMAT>          Format for output [default: depthmap] [possible values: depthmap, stereogram]\
+\n      --resize-scale=<SCALE>                  Custom scale for stereogram output [default: 1.0]\
+\n      --stereo-amplitude=<AMPLITUDE>          Custom scale for stereogram output [default: 0.0625]\
+\n      --mesh=<MESH>                           Mesh options [default: vertex-colors] [possible values: plain, vertex-colors, texture-coordinates]\
+\n      --convert-checkpoints                   Convert checkpoints into a more efficient format [default: disabled]\
+\n      --acceleration=<vulkan|metal|cpu|cuda>  Specify the hardware acceleration to use [default: best option]\
+\n      --precision=<f16|f32>                   Specify f16 or f32 precision for processing (f16 uses less memory) [default: f16]\
+\n      --help                                  Print help";
 
 impl Args {
     fn parse() -> Args {
         let acceleration = cfg_select! {
-            any(feature = "wgpu-spirv", feature = "wgpu-metal") => reconstruction::Acceleration::Wgpu,
+            feature = "vulkan" => reconstruction::Acceleration::Vulkan,
+            feature = "metal" => reconstruction::Acceleration::Metal,
             feature = "cuda" => reconstruction::Acceleration::Cuda,
             feature = "flex" => reconstruction::Acceleration::Cpu,
         };
@@ -80,8 +81,10 @@ impl Args {
                     args.acceleration = match value.to_lowercase().as_str() {
                         #[cfg(feature = "flex")]
                         "cpu" => reconstruction::Acceleration::Cpu,
-                        #[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
-                        "wgpu" => reconstruction::Acceleration::Wgpu,
+                        #[cfg(feature = "vulkan")]
+                        "vulkan" => reconstruction::Acceleration::Vulkan,
+                        #[cfg(feature = "metal")]
+                        "metal" => reconstruction::Acceleration::Metal,
                         #[cfg(feature = "cuda")]
                         "cuda" => reconstruction::Acceleration::Cuda,
                         _ => {

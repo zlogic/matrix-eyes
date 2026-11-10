@@ -30,8 +30,10 @@ impl FloatType {
 pub enum Acceleration {
     #[cfg(feature = "flex")]
     Cpu,
-    #[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
-    Wgpu,
+    #[cfg(feature = "vulkan")]
+    Vulkan,
+    #[cfg(feature = "metal")]
+    Metal,
     #[cfg(feature = "cuda")]
     Cuda,
 }
@@ -41,11 +43,13 @@ impl Acceleration {
         match self {
             #[cfg(feature = "flex")]
             Self::Cpu => configure_device(Device::flex(), float_type),
-            #[cfg(any(feature = "wgpu-spirv", feature = "wgpu-metal"))]
-            Self::Wgpu => configure_device(
-                Device::wgpu(burn::tensor::DeviceKind::DefaultDevice),
+            #[cfg(feature = "vulkan")]
+            Self::Vulkan => configure_device(
+                Device::vulkan(burn::tensor::DeviceKind::DefaultDevice),
                 float_type,
             ),
+            #[cfg(feature = "metal")]
+            Self::Metal => configure_device(Device::metal(), float_type),
             #[cfg(feature = "cuda")]
             Self::Cuda => {
                 configure_device(Device::cuda(burn::tensor::DeviceIndex::Default), float_type)

@@ -41,11 +41,11 @@ jobs:
         include:
         - arch: x86_64
           os: ubuntu
-          acceleration: wgpu-spirv,cuda
+          acceleration: vulkan,cuda
           features: fusion
         - arch: x86_64
           os: ubuntu
-          acceleration: wgpu-spirv,cuda
+          acceleration: vulkan,cuda
           features: fusion,autotune
 
     steps:
@@ -112,10 +112,10 @@ jobs:
       matrix:
         include:
         - arch: x86_64
-          acceleration: wgpu-spirv,cuda
+          acceleration: vulkan,cuda
           features: fusion
         - arch: x86_64
-          acceleration: wgpu-spirv,cuda
+          acceleration: vulkan,cuda
           features: fusion,autotune
 
     steps:
@@ -176,16 +176,16 @@ jobs:
       matrix:
         include:
         - arch: x86_64
-          acceleration: wgpu-metal
+          acceleration: metal
           features: fusion,autotune
         - arch: x86_64
-          acceleration: wgpu-metal
+          acceleration: metal
           features: fusion
         - arch: aarch64
-          acceleration: wgpu-metal
+          acceleration: metal
           features: fusion,autotune
         - arch: aarch64
-          acceleration: wgpu-metal
+          acceleration: metal
           features: fusion
 
     steps:

@@ -42,8 +42,8 @@ The following versions are available:
   * fusion-autotune (fusion and autotune enabled, runs on a GPU with 8GB of VRAM, supports vendor-neutral GPU and CUDA acceleration)
   * fusion (fusion enabled, runs on a GPU with 8GB of VRAM, supports vendor-neutral GPU and CUDA acceleration)
 * macOS
-  * fusion-autotune (wgpu version with fusion and autotune enabled, uses 4 GB when running)
-  * fusion (wgpu version with fusion with fusion enabled, uses 3 GB when running)
+  * fusion-autotune (fusion and autotune enabled, uses 4 GB when running)
+  * fusion (fusion enabled, uses 3 GB when running)
 
 To use CUDA acceleration in Windows, download the [Burn CUDA libraries](https://github.com/zlogic/matrix-eyes/releases/download/0.1.4/cuda-Windows-x86_64-burn.zip) artifact and extract its contents into the same directory. Set the `CUDA_PATH` environment variable to the path where you've extracted matrix-eyes and the Burn CUDA libraries artifact.
 
@@ -59,7 +59,7 @@ curl -LJ -o checkpoints/depth_pro.pt https://ml-site.cdn-apple.com/models/depth-
 To gerate a depth image, run:
 
 ```shell
-matrix-eyes [--focal-length=<focal-length>] [--checkpoint-path=<checkpoint-path>] [--image-output-format=<depthmap|stereogram>] [--resize-scale=<scale>] [--stereo-amplitude=<amplitude>] [--mesh=<plain|vertex-colors|texture-coordinates>] [--convert-checkpoints] [--acceleration=<wgpu|cuda|cpu>] [--precision=<f16|f32>] <source> <output>
+matrix-eyes [--focal-length=<focal-length>] [--checkpoint-path=<checkpoint-path>] [--image-output-format=<depthmap|stereogram>] [--resize-scale=<scale>] [--stereo-amplitude=<amplitude>] [--mesh=<plain|vertex-colors|texture-coordinates>] [--convert-checkpoints] [--acceleration=<vulkan|metal|cuda|cpu>] [--precision=<f16|f32>] <source> <output>
 ```
 
 `--focal-length=<focal-length>` is an optional argument to specify a custom focal length for images with perspective projection, for example, `--focal-length=26`;
@@ -81,8 +81,11 @@ This can help with making noise pixels large enough to be visible.
 
 `--convert-checkpoints` will convert checkpoints from a `.pt` (Python pickle) format into a more efficient Burn format.
 
-`--acceleration=<wgpu|cuda|cpu>` is an optional argument to specify which hardware/acceleration framework to use, for example `--acceleration=wgpu`.
-`cuda` only works in Linux and Windows versions and requires a CUDA-compatible GPU, while `wgpu` and `cpu` run on all platforms.
+`--acceleration=<vulkan|metal|cuda|cpu>` is an optional argument to specify which hardware/acceleration framework to use, for example `--acceleration=vulkan`.
+`vulkan` only works in Linux and Windows versions, and should work with any GPU.
+`metal` only works in macOS.
+`cuda` only works in Linux and Windows versions and requires a CUDA-compatible GPU.
+`cpu` runs on all platforms.
 
 `--precision=<f16|f32>` is an optional argument to specify floating point precision, for example `--precision=f32`.
 If not specified, f16 precision will be used, as it uses less VRAM and produces results almost identical to f32.
@@ -99,10 +102,10 @@ If not specified, f16 precision will be used, as it uses less VRAM and produces 
 
 Matrix Eyes was tested to support CPU-only and GPU-accelerated processing on:
 
-* Apple Macbook Pro M4 Max (2024) (wgpu version)
-* Apple Macbook Pro M1 Max (2021) (wgpu versions)
-* Windows 11, i7-11800H, Geforce RTX 3070 (cuda and wgpu versions)
+* Apple Macbook Pro M4 Max (2024) (metal version)
+* Apple Macbook Pro M1 Max (2021) (metal version)
+* Windows 11, i7-11800H, Geforce RTX 3070 (cuda and vulkan versions)
   * f32 precision needs more than 8GB VRAM and causes exceptions or device loss issues.
-* Fedora 44, i7-11800H, Geforce RTX 3070 (cuda and wgpu versions)
+* Fedora 44, i7-11800H, Geforce RTX 3070 (cuda and vulkan versions)
   * f32 precision needs more than 8GB VRAM and causes exceptions or device loss issues.
 
